@@ -40,6 +40,13 @@ try:
 except ImportError:
     qta = None
 
+try:
+    from send2trash import send2trash
+except ImportError:
+    # Fällt zurück auf permanentes Löschen, falls send2trash nicht installiert ist,
+    # damit "Löschen nach Datum/Name" trotzdem funktionsfähig bleibt.
+    send2trash = os.remove
+
 def icon(name, color="#e0e0e0"):
     """Liefert ein qtawesome-Icon oder ein leeres QIcon, falls qtawesome
     fehlt oder der Icon-Name ungültig ist (z.B. bei älterer Font-Version).
@@ -53,7 +60,7 @@ def icon(name, color="#e0e0e0"):
 
 # Configuration
 APP_NAME = "Robocopy GUI"
-VERSION = "4.4"
+VERSION = "2.1"
 CONFIG_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'py_config.json')
 LOGO_FILENAME = "logo.png"
 PRESETS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'presets.json')
@@ -496,7 +503,7 @@ class MainWindow(QMainWindow):
         btn_del_date = QPushButton(" Löschen nach Datum")
         btn_del_date.setIcon(icon('fa5s.calendar-times'))
         btn_del_date.clicked.connect(self.delete_by_date)
-        btn_del_date.setToolTip("Löscht Dateien im Zielordner, die am ausgewählten Datum geändert wurden.")
+        btn_del_date.setToolTip("Verschiebt Dateien im Zielordner, die am ausgewählten Datum geändert wurden, in den Papierkorb.")
         layout_del.addWidget(QLabel("Datum:"), 0, 0)
         layout_del.addWidget(self.date_edit, 0, 1)
         layout_del.addWidget(btn_del_date, 0, 2)
@@ -507,7 +514,7 @@ class MainWindow(QMainWindow):
         btn_del_name = QPushButton(" Löschen nach Name")
         btn_del_name.setIcon(icon('fa5s.eraser'))
         btn_del_name.clicked.connect(self.delete_by_name)
-        btn_del_name.setToolTip("Löscht Dateien im Zielordner, deren Namen dem eingegebenen Muster entsprechen.")
+        btn_del_name.setToolTip("Verschiebt Dateien im Zielordner, deren Namen dem eingegebenen Muster entsprechen, in den Papierkorb.")
         layout_del.addWidget(QLabel("Muster:"), 1, 0)
         layout_del.addWidget(self.txt_pattern, 1, 1)
         layout_del.addWidget(btn_del_name, 1, 2)
@@ -867,45 +874,45 @@ class MainWindow(QMainWindow):
         if not os.path.exists(target):
             return
         target_date = self.date_edit.date().toPyDate()
-        if QMessageBox.question(self, "Löschen", f"Alle Dateien in '{target}' löschen, die am {target_date} geändert wurden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, "In Papierkorb verschieben", f"Alle Dateien in '{target}' in den Papierkorb verschieben, die am {target_date} geändert wurden?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             count = 0
             # Starte Löschvorgang; protokolliere Fortschritt im Log
             self.txt_log.clear()
-            self.append_log(f"Starte Löschen nach Datum: {target_date}...", "HEADER")
+            self.append_log(f"Starte Verschieben in den Papierkorb nach Datum: {target_date}...", "HEADER")
             for root, dirs, files in os.walk(target):
                 for file in files:
                     full_path = os.path.join(root, file)
                     try:
                         if datetime.date.fromtimestamp(os.path.getmtime(full_path)) == target_date:
-                            os.remove(full_path)
-                            self.append_log(f"Gelöscht: {full_path}", "WARNING")
+                            send2trash(full_path)
+                            self.append_log(f"In Papierkorb verschoben: {full_path}", "WARNING")
                             count += 1
                     except Exception as e:
                         self.append_log(f"Fehler: {e}", "ERROR")
-            self.append_log(f"Fertig. {count} Dateien gelöscht.", "SUMMARY")
-            QMessageBox.information(self, "Info", f"{count} Dateien gelöscht.")
+            self.append_log(f"Fertig. {count} Dateien in den Papierkorb verschoben.", "SUMMARY")
+            QMessageBox.information(self, "Info", f"{count} Dateien in den Papierkorb verschoben.")
 
     def delete_by_name(self):
         target = self.cmb_target.currentText()
         pattern = self.txt_pattern.text().strip()
         if not os.path.exists(target) or not pattern:
             return
-        if QMessageBox.warning(self, "Sicherheitswarnung", f"SICHERHEITSWARNUNG!\n\nLösche Dateien in '{target}'\ndie '{pattern}' im Namen haben.\n\nFortfahren?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+        if QMessageBox.warning(self, "Sicherheitswarnung", f"SICHERHEITSWARNUNG!\n\nDateien in '{target}'\ndie '{pattern}' im Namen haben in den Papierkorb verschieben?\n\nFortfahren?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
             count = 0
             self.txt_log.clear()
-            self.append_log(f"Starte Löschen nach Muster: *{pattern}*...", "HEADER")
+            self.append_log(f"Starte Verschieben in den Papierkorb nach Muster: *{pattern}*...", "HEADER")
             for root, dirs, files in os.walk(target):
                 for file in files:
                     if pattern.lower() in file.lower():
                         full_path = os.path.join(root, file)
                         try:
-                            os.remove(full_path)
-                            self.append_log(f"Gelöscht: {full_path}", "WARNING")
+                            send2trash(full_path)
+                            self.append_log(f"In Papierkorb verschoben: {full_path}", "WARNING")
                             count += 1
                         except Exception as e:
                             self.append_log(f"Fehler: {e}", "ERROR")
-            self.append_log(f"Fertig. {count} Dateien gelöscht.", "SUMMARY")
-            QMessageBox.information(self, "Info", f"{count} Dateien gelöscht.")
+            self.append_log(f"Fertig. {count} Dateien in den Papierkorb verschoben.", "SUMMARY")
+            QMessageBox.information(self, "Info", f"{count} Dateien in den Papierkorb verschoben.")
 
     def load_config(self):
         if os.path.exists(CONFIG_FILE):

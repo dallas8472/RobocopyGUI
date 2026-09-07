@@ -15,6 +15,7 @@ Eine schlanke grafische Oberfläche für das Windows-Tool `robocopy`, implementi
 - Python 3.10+ (hier getestet mit 3.14)
 - PyQt6
 - qtawesome (Icons in der Oberfläche)
+- send2trash (Papierkorb statt permanentem Löschen)
 - Pillow (für Icon-Erstellung)
 - PyInstaller (zum Erstellen der EXE)
 
@@ -23,7 +24,7 @@ Installation der Abhängigkeiten (Dev-Umgebung):
 ```powershell
 python -m pip install -r requirements.txt
 # oder einzeln
-python -m pip install PyQt6 qtawesome pillow pyinstaller
+python -m pip install PyQt6 qtawesome send2trash pillow pyinstaller
 ```
 
 Build (einfacher Befehl, erzeugt `dist/RobocopyGUI.exe`):
