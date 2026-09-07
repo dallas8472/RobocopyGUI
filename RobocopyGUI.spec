@@ -1,11 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import qtawesome
 
+# Die App nutzt nur das FontAwesome5-Solid-Iconset (Präfix "fa5s.") aus
+# qtawesome. Statt aller mitgelieferten Icon-Fonts (~6 MB) wird gezielt nur
+# dieses eine Font-Paar in die exe eingebettet, um sie schlank zu halten.
+_qta_fonts_dir = os.path.join(os.path.dirname(qtawesome.__file__), 'fonts')
+_qta_datas = [
+    (os.path.join(_qta_fonts_dir, f), 'qtawesome/fonts')
+    for f in os.listdir(_qta_fonts_dir)
+    if f.startswith('fontawesome5-solid')
+]
 
 a = Analysis(
     ['RobocopyGUI.py'],
     pathex=[],
     binaries=[],
-    datas=[('logo.png', '.')],
+    datas=[('logo.png', '.')] + _qta_datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
