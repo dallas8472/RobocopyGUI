@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
     QLabel, QComboBox, QLineEdit, QPushButton, QCheckBox,
     QSpinBox, QGroupBox, QTextEdit, QProgressBar, QFileDialog,
     QMessageBox, QDateEdit, QSplashScreen, QDialog, QDialogButtonBox,
-    QSpacerItem, QSizePolicy, QGridLayout, QInputDialog,
+    QSpacerItem, QSizePolicy, QGridLayout,
     QListWidget, QListWidgetItem, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate, QTimer, QSize
@@ -299,6 +299,7 @@ class MainWindow(QMainWindow):
         self.queue_results = []
         self.queue_running = False
         self._queue_total = 0
+        self._task_dialog = None
 
         icon_path = resource_path(LOGO_FILENAME)
         if os.path.exists(icon_path):
@@ -400,6 +401,11 @@ class MainWindow(QMainWindow):
         exit_action = QAction(icon('fa5s.sign-out-alt'), 'Beenden', self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        tasks_menu = menubar.addMenu('Tasks')
+        manage_tasks_action = QAction(icon('fa5s.list'), 'Tasks verwalten...', self)
+        manage_tasks_action.triggered.connect(self.open_task_manager)
+        tasks_menu.addAction(manage_tasks_action)
 
         admin_menu = menubar.addMenu('Admin-Modus')
         restart_action = QAction(icon('fa5s.user-shield'), 'Als Administrator neu starten', self)
@@ -542,67 +548,6 @@ class MainWindow(QMainWindow):
         grp_del.setLayout(layout_del)
         h_mid.addWidget(grp_del, stretch=1)
         main_layout.addLayout(h_mid)
-
-        # Tasks: eine gespeicherte, benannte Liste von Jobs (Aktion/Quelle/
-        # Ziel/Optionen). Ersetzt die frühere Trennung von "Voreinstellungen"
-        # (nur laden) und "Warteschlange" (nur ablegen) durch ein Konzept:
-        # eine Task laden füllt das Formular oben zum Bearbeiten/Ausführen,
-        # mehrere Tasks markieren + "Warteschlange starten" führt sie in
-        # Listreihenfolge nacheinander aus.
-        grp_tasks = QGroupBox("Tasks")
-        layout_tasks = QVBoxLayout()
-        layout_tasks.setSpacing(6)
-
-        row_task_top = QHBoxLayout()
-        self.cmb_task_action = QComboBox()
-        self.cmb_task_action.addItems(list(ACTION_PARAMS.keys()))
-        self.cmb_task_action.setToolTip("Aktionstyp, der beim Speichern dieser Task zugeordnet wird.")
-        row_task_top.addWidget(QLabel("Aktion:"))
-        row_task_top.addWidget(self.cmb_task_action)
-        row_task_top.addStretch()
-        layout_tasks.addLayout(row_task_top)
-
-        self.list_tasks = QListWidget()
-        self.list_tasks.setMinimumHeight(50)
-        self.list_tasks.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.list_tasks.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.list_tasks.setToolTip(
-            "Strg/Umschalt-Klick markiert mehrere Tasks für die Warteschlange.\n"
-            "Per Drag & Drop lässt sich die Reihenfolge ändern."
-        )
-        self.list_tasks.model().rowsMoved.connect(self.on_tasks_reordered)
-        self.list_tasks.itemSelectionChanged.connect(self._update_queue_button_label)
-        layout_tasks.addWidget(self.list_tasks)
-
-        row_task_actions = QHBoxLayout()
-        btn_save_task = QPushButton(" Speichern")
-        btn_save_task.setIcon(icon('fa5s.save'))
-        btn_save_task.setToolTip("Speichert die aktuellen Formularfelder + Aktion als Task (überschreibt bei gleichem Namen).")
-        btn_save_task.clicked.connect(self.save_task)
-        btn_load_task = QPushButton(" Laden")
-        btn_load_task.setIcon(icon('fa5s.file-import'))
-        btn_load_task.setToolTip("Lädt die markierte Task in das Formular oben zum Bearbeiten/Ausführen.")
-        btn_load_task.clicked.connect(self.load_task)
-        btn_delete_task = QPushButton(" Löschen")
-        btn_delete_task.setIcon(icon('fa5s.trash'))
-        btn_delete_task.setToolTip("Löscht die markierte(n) Task(s) aus der Liste.")
-        btn_delete_task.clicked.connect(self.remove_selected_task)
-        self.btn_start_queue = QPushButton(" Warteschlange starten")
-        self.btn_start_queue.setIcon(icon('fa5s.play', color='white'))
-        self.btn_start_queue.setObjectName("btn_blue")
-        self.btn_start_queue.setToolTip("Führt alle markierten Tasks in Listreihenfolge nacheinander aus.")
-        self.btn_start_queue.clicked.connect(self.start_queue)
-        row_task_actions.addWidget(btn_save_task)
-        row_task_actions.addWidget(btn_load_task)
-        row_task_actions.addWidget(btn_delete_task)
-        row_task_actions.addStretch()
-        row_task_actions.addWidget(self.btn_start_queue)
-        layout_tasks.addLayout(row_task_actions)
-        self._update_queue_button_label()
-
-        grp_tasks.setLayout(layout_tasks)
-        grp_tasks.setMaximumHeight(190)
-        main_layout.addWidget(grp_tasks)
 
         # Actions
         grp_actions = QGroupBox("Ausführung")
@@ -951,7 +896,6 @@ class MainWindow(QMainWindow):
             pass
 
         self._migrate_legacy_presets()
-        self.refresh_queue_list()
 
     def _migrate_legacy_presets(self):
         """Einmalige Migration: frühere "Voreinstellungen" (presets.json)
@@ -1030,18 +974,18 @@ class MainWindow(QMainWindow):
                     return False
         return True
 
-    # --- Tasks (speichern/laden/löschen + Warteschlange) ----------------
+    # --- Tasks: Persistenz + Warteschlangen-Ausführung -------------------
+    # Die Bearbeitung (Speichern/Laden/Löschen/Reihenfolge) findet im
+    # separaten TaskManagerDialog statt (siehe open_task_manager), der
+    # direkt auf self.queue_tasks arbeitet und save_tasks() aufruft.
 
-    def refresh_queue_list(self):
-        selected_names = {it.data(Qt.ItemDataRole.UserRole)['name'] for it in self.list_tasks.selectedItems()}
-        self.list_tasks.clear()
-        for t in self.queue_tasks:
-            item = QListWidgetItem(f"[{t['action']}] {t['name']}  ({t['source']} → {t['target']})")
-            item.setData(Qt.ItemDataRole.UserRole, t)
-            self.list_tasks.addItem(item)
-            if t['name'] in selected_names:
-                item.setSelected(True)
-        self._update_queue_button_label()
+    def open_task_manager(self):
+        if getattr(self, '_task_dialog', None) is None:
+            self._task_dialog = TaskManagerDialog(self)
+        self._task_dialog.refresh_list()
+        self._task_dialog.show()
+        self._task_dialog.raise_()
+        self._task_dialog.activateWindow()
 
     def save_tasks(self):
         try:
@@ -1051,107 +995,19 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.append_log(f"WARNUNG: Konnte Tasks nicht speichern: {e}", "WARNING")
 
-    def save_task(self):
-        """Speichert die aktuellen Formularfelder + gewählte Aktion als Task.
-        Ist bereits eine Task markiert, wird deren Name als Vorschlag genutzt;
-        stimmt der eingegebene Name mit einer vorhandenen Task überein, wird
-        diese aktualisiert (Position bleibt erhalten), sonst wird neu angehängt."""
-        src = self.cmb_source.currentText().strip()
-        dst = self.cmb_target.currentText().strip()
-        if not src or not dst:
-            QMessageBox.warning(self, "Fehler", "Bitte Quell- und Zielordner angeben, bevor eine Task gespeichert wird.")
-            return
-        action = self.cmb_task_action.currentText()
-        current_item = self.list_tasks.currentItem()
-        if current_item is not None:
-            suggested = current_item.data(Qt.ItemDataRole.UserRole)['name']
-        else:
-            suggested = f"{action}: {src} → {dst}"
-        name, ok = QInputDialog.getText(self, "Task speichern", "Name der Task:", text=suggested)
-        if not ok:
-            return
-        name = name.strip() or suggested
-        task = {
-            "name": name,
-            "action": action,
-            "source": src,
-            "target": dst,
-            "days": self.spin_days.value(),
-            "acl": self.chk_acl.isChecked(),
-            "verbose": self.chk_verbose.isChecked(),
-            "log": self.chk_log.isChecked(),
-        }
-        existing_index = next((i for i, t in enumerate(self.queue_tasks) if t['name'] == name), None)
-        if existing_index is not None:
-            self.queue_tasks[existing_index] = task
-        else:
-            self.queue_tasks.append(task)
-        self.refresh_queue_list()
-        self.save_tasks()
-
-    def load_task(self):
-        item = self.list_tasks.currentItem()
-        if item is None:
-            QMessageBox.warning(self, "Fehler", "Bitte zuerst eine Task in der Liste markieren.")
-            return
-        t = item.data(Qt.ItemDataRole.UserRole)
-        self.cmb_source.setCurrentText(t["source"])
-        self.cmb_target.setCurrentText(t["target"])
-        self.spin_days.setValue(t["days"])
-        self.chk_acl.setChecked(t["acl"])
-        self.chk_verbose.setChecked(t["verbose"])
-        self.chk_log.setChecked(t["log"])
-        self.cmb_task_action.setCurrentText(t["action"])
-
-    def remove_selected_task(self):
-        items = self.list_tasks.selectedItems()
-        if not items:
-            QMessageBox.warning(self, "Fehler", "Bitte mindestens eine Task in der Liste markieren.")
-            return
-        names = [it.data(Qt.ItemDataRole.UserRole)['name'] for it in items]
-        reply = QMessageBox.question(
-            self, "Task(s) löschen",
-            "Folgende Task(s) wirklich löschen?\n\n" + "\n".join(f"- {n}" for n in names),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.queue_tasks = [t for t in self.queue_tasks if t['name'] not in names]
-            self.refresh_queue_list()
-            self.save_tasks()
-
-    def _update_queue_button_label(self):
-        count = len(self.list_tasks.selectedItems())
-        if count > 0:
-            self.btn_start_queue.setText(f" Warteschlange starten ({count})")
-        else:
-            self.btn_start_queue.setText(" Warteschlange starten")
-
-    def on_tasks_reordered(self):
-        # Nach Drag&Drop im QListWidget: Reihenfolge der Task-Liste aus der
-        # aktuellen Anzeigereihenfolge neu aufbauen und persistieren.
-        reordered = []
-        for i in range(self.list_tasks.count()):
-            data = self.list_tasks.item(i).data(Qt.ItemDataRole.UserRole)
-            if data is not None:
-                reordered.append(data)
-        self.queue_tasks = reordered
-        self.save_tasks()
-
-    def start_queue(self):
-        selected_items = sorted(self.list_tasks.selectedItems(), key=lambda it: self.list_tasks.row(it))
-        if not selected_items:
+    def start_queue(self, tasks):
+        """Führt die übergebenen Tasks (Liste von Task-Dicts, in Ausführungs-
+        reihenfolge) nacheinander aus. Wird vom TaskManagerDialog aufgerufen."""
+        if not tasks:
             QMessageBox.information(
                 self, "Keine Auswahl",
-                "Bitte mindestens eine Task in der Liste markieren (Strg/Umschalt-Klick), "
-                "die als Warteschlange ausgeführt werden soll."
+                "Bitte mindestens eine Task markieren, die als Warteschlange ausgeführt werden soll."
             )
             return
         if hasattr(self, 'worker') and self.worker.isRunning():
             QMessageBox.warning(self, "Läuft bereits", "Es läuft bereits ein Robocopy-Vorgang.")
             return
 
-        tasks = [it.data(Qt.ItemDataRole.UserRole) for it in selected_items]
         destructive = [t for t in tasks if t['action'] in ("Mirror", "Purge")]
         if destructive:
             names = "\n".join(f"- {t['name']}" for t in destructive)
@@ -1249,6 +1105,265 @@ class MainWindow(QMainWindow):
 
     def clear_log(self):
         self.txt_log.clear()
+
+class TaskManagerDialog(QDialog):
+    """Eigenständiges Fenster zur Task-Verwaltung: anlegen, bearbeiten,
+    löschen, per Drag & Drop sortieren und eine Auswahl als Warteschlange
+    starten. Arbeitet direkt auf main_window.queue_tasks; die eigentliche
+    Ausführung (execute_job/_run_next_queue_task/...) bleibt in MainWindow,
+    damit der Log-Bereich und der Fortschritt dort sichtbar sind."""
+
+    def __init__(self, main_window):
+        super().__init__(main_window)
+        self.main_window = main_window
+        self.setWindowTitle("Tasks verwalten")
+        if not main_window.windowIcon().isNull():
+            self.setWindowIcon(main_window.windowIcon())
+        self.resize(820, 480)
+        self.setMinimumSize(700, 420)
+
+        outer = QVBoxLayout(self)
+
+        content = QHBoxLayout()
+        content.setSpacing(12)
+
+        # Linke Seite: Liste der gespeicherten Tasks
+        left = QVBoxLayout()
+        lbl_hint = QLabel(
+            "Strg/Umschalt-Klick markiert mehrere Tasks für die Warteschlange.\n"
+            "Per Drag & Drop lässt sich die Reihenfolge ändern."
+        )
+        lbl_hint.setWordWrap(True)
+        left.addWidget(lbl_hint)
+
+        self.list_tasks = QListWidget()
+        self.list_tasks.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.list_tasks.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.list_tasks.model().rowsMoved.connect(self._on_reordered)
+        self.list_tasks.currentItemChanged.connect(self._on_current_changed)
+        self.list_tasks.itemSelectionChanged.connect(self._update_queue_button_label)
+        left.addWidget(self.list_tasks, 1)
+
+        row_left_buttons = QHBoxLayout()
+        btn_new = QPushButton(" Neu")
+        btn_new.setIcon(icon('fa5s.plus-circle'))
+        btn_new.setToolTip("Leert das Formular rechts für eine neue Task.")
+        btn_new.clicked.connect(self.new_task)
+        btn_delete = QPushButton(" Löschen")
+        btn_delete.setIcon(icon('fa5s.trash'))
+        btn_delete.setToolTip("Löscht die markierte(n) Task(s).")
+        btn_delete.clicked.connect(self.delete_selected)
+        row_left_buttons.addWidget(btn_new)
+        row_left_buttons.addWidget(btn_delete)
+        left.addLayout(row_left_buttons)
+
+        content.addLayout(left, 1)
+
+        # Rechte Seite: Formular zum Anlegen/Bearbeiten einer Task
+        right = QVBoxLayout()
+        grp_form = QGroupBox("Task bearbeiten")
+        form = QVBoxLayout()
+        form.setSpacing(8)
+
+        row_name = QHBoxLayout()
+        row_name.addWidget(QLabel("Name:"))
+        self.txt_name = QLineEdit()
+        row_name.addWidget(self.txt_name)
+        form.addLayout(row_name)
+
+        row_action = QHBoxLayout()
+        row_action.addWidget(QLabel("Aktion:"))
+        self.cmb_action = QComboBox()
+        self.cmb_action.addItems(list(ACTION_PARAMS.keys()))
+        row_action.addWidget(self.cmb_action)
+        row_action.addStretch()
+        form.addLayout(row_action)
+
+        row_src = QHBoxLayout()
+        row_src.addWidget(QLabel("Quelle:"))
+        self.txt_source = QLineEdit()
+        btn_src = QPushButton()
+        btn_src.setIcon(icon('fa5s.folder-open'))
+        btn_src.setToolTip("Durchsuchen...")
+        btn_src.clicked.connect(lambda: self._browse(self.txt_source))
+        row_src.addWidget(self.txt_source)
+        row_src.addWidget(btn_src)
+        form.addLayout(row_src)
+
+        row_dst = QHBoxLayout()
+        row_dst.addWidget(QLabel("Ziel:"))
+        self.txt_target = QLineEdit()
+        btn_dst = QPushButton()
+        btn_dst.setIcon(icon('fa5s.folder-open'))
+        btn_dst.setToolTip("Durchsuchen...")
+        btn_dst.clicked.connect(lambda: self._browse(self.txt_target))
+        row_dst.addWidget(self.txt_target)
+        row_dst.addWidget(btn_dst)
+        form.addLayout(row_dst)
+
+        row_days = QHBoxLayout()
+        row_days.addWidget(QLabel("Dateialter:"))
+        self.spin_days = QSpinBox()
+        self.spin_days.setRange(0, 9999)
+        row_days.addWidget(self.spin_days)
+        row_days.addWidget(QLabel("Tage (0 = Alle)"))
+        row_days.addStretch()
+        form.addLayout(row_days)
+
+        self.chk_acl = QCheckBox("Berechtigungen (ACLs) /COPYALL")
+        self.chk_verbose = QCheckBox("Alle Dateien anzeigen (Verbose /V)")
+        self.chk_log = QCheckBox("Logdatei erstellen (im eingestellten Log-Ordner)")
+        form.addWidget(self.chk_acl)
+        form.addWidget(self.chk_verbose)
+        form.addWidget(self.chk_log)
+        form.addStretch()
+
+        grp_form.setLayout(form)
+        right.addWidget(grp_form, 1)
+
+        btn_save = QPushButton(" Speichern")
+        btn_save.setIcon(icon('fa5s.save'))
+        btn_save.setObjectName("btn_blue")
+        btn_save.setToolTip("Speichert diese Task (überschreibt bei gleichem Namen).")
+        btn_save.clicked.connect(self.save_current)
+        right.addWidget(btn_save)
+
+        content.addLayout(right, 1)
+        outer.addLayout(content, 1)
+
+        footer = QHBoxLayout()
+        self.btn_start_queue = QPushButton(" Warteschlange starten")
+        self.btn_start_queue.setIcon(icon('fa5s.play', color='white'))
+        self.btn_start_queue.setObjectName("btn_blue")
+        self.btn_start_queue.setToolTip("Führt alle markierten Tasks in Listreihenfolge nacheinander aus.")
+        self.btn_start_queue.clicked.connect(self.start_selected_queue)
+        btn_close = QPushButton(" Schließen")
+        btn_close.setIcon(icon('fa5s.times-circle'))
+        btn_close.clicked.connect(self.close)
+        footer.addWidget(self.btn_start_queue)
+        footer.addStretch()
+        footer.addWidget(btn_close)
+        outer.addLayout(footer)
+
+        self.new_task()
+        self.refresh_list()
+
+    def _browse(self, line_edit):
+        folder = QFileDialog.getExistingDirectory(self, "Ordner auswählen", line_edit.text())
+        if folder:
+            line_edit.setText(os.path.normpath(folder))
+
+    def new_task(self):
+        self.list_tasks.setCurrentRow(-1)
+        self.txt_name.clear()
+        self.txt_source.clear()
+        self.txt_target.clear()
+        self.spin_days.setValue(0)
+        self.chk_acl.setChecked(False)
+        self.chk_verbose.setChecked(False)
+        self.chk_log.setChecked(False)
+        self.cmb_action.setCurrentIndex(0)
+        self.txt_name.setFocus()
+
+    def _on_current_changed(self, current, previous):
+        if current is None:
+            return
+        t = current.data(Qt.ItemDataRole.UserRole)
+        self.txt_name.setText(t["name"])
+        self.cmb_action.setCurrentText(t["action"])
+        self.txt_source.setText(t["source"])
+        self.txt_target.setText(t["target"])
+        self.spin_days.setValue(t.get("days", 0))
+        self.chk_acl.setChecked(t.get("acl", False))
+        self.chk_verbose.setChecked(t.get("verbose", False))
+        self.chk_log.setChecked(t.get("log", False))
+
+    def save_current(self):
+        src = self.txt_source.text().strip()
+        dst = self.txt_target.text().strip()
+        if not src or not dst:
+            QMessageBox.warning(self, "Fehler", "Bitte Quell- und Zielordner angeben.")
+            return
+        name = self.txt_name.text().strip()
+        if not name:
+            name = f"{self.cmb_action.currentText()}: {src} → {dst}"
+            self.txt_name.setText(name)
+        task = {
+            "name": name,
+            "action": self.cmb_action.currentText(),
+            "source": src,
+            "target": dst,
+            "days": self.spin_days.value(),
+            "acl": self.chk_acl.isChecked(),
+            "verbose": self.chk_verbose.isChecked(),
+            "log": self.chk_log.isChecked(),
+        }
+        tasks = self.main_window.queue_tasks
+        existing_index = next((i for i, t in enumerate(tasks) if t['name'] == name), None)
+        if existing_index is not None:
+            tasks[existing_index] = task
+        else:
+            tasks.append(task)
+        self.main_window.save_tasks()
+        self.refresh_list(select_name=name)
+
+    def delete_selected(self):
+        items = self.list_tasks.selectedItems()
+        if not items:
+            QMessageBox.warning(self, "Fehler", "Bitte mindestens eine Task in der Liste markieren.")
+            return
+        names = [it.data(Qt.ItemDataRole.UserRole)['name'] for it in items]
+        reply = QMessageBox.question(
+            self, "Task(s) löschen",
+            "Folgende Task(s) wirklich löschen?\n\n" + "\n".join(f"- {n}" for n in names),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.main_window.queue_tasks = [t for t in self.main_window.queue_tasks if t['name'] not in names]
+            self.main_window.save_tasks()
+            self.new_task()
+            self.refresh_list()
+
+    def refresh_list(self, select_name=None):
+        selected_names = (
+            {select_name} if select_name is not None
+            else {it.data(Qt.ItemDataRole.UserRole)['name'] for it in self.list_tasks.selectedItems()}
+        )
+        self.list_tasks.blockSignals(True)
+        self.list_tasks.clear()
+        for t in self.main_window.queue_tasks:
+            item = QListWidgetItem(f"[{t['action']}] {t['name']}  ({t['source']} → {t['target']})")
+            item.setData(Qt.ItemDataRole.UserRole, t)
+            self.list_tasks.addItem(item)
+            if t['name'] in selected_names:
+                item.setSelected(True)
+                self.list_tasks.setCurrentItem(item)
+        self.list_tasks.blockSignals(False)
+        self._update_queue_button_label()
+
+    def _on_reordered(self):
+        # Nach Drag&Drop: Reihenfolge aus der aktuellen Anzeige neu aufbauen
+        # und in main_window.queue_tasks persistieren.
+        reordered = []
+        for i in range(self.list_tasks.count()):
+            data = self.list_tasks.item(i).data(Qt.ItemDataRole.UserRole)
+            if data is not None:
+                reordered.append(data)
+        self.main_window.queue_tasks = reordered
+        self.main_window.save_tasks()
+
+    def _update_queue_button_label(self):
+        count = len(self.list_tasks.selectedItems())
+        if count > 0:
+            self.btn_start_queue.setText(f" Warteschlange starten ({count})")
+        else:
+            self.btn_start_queue.setText(" Warteschlange starten")
+
+    def start_selected_queue(self):
+        selected_items = sorted(self.list_tasks.selectedItems(), key=lambda it: self.list_tasks.row(it))
+        tasks = [it.data(Qt.ItemDataRole.UserRole) for it in selected_items]
+        self.main_window.start_queue(tasks)
 
 if __name__ == "__main__":
     # Anwendung starten
