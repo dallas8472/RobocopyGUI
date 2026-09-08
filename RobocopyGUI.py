@@ -5,6 +5,7 @@ import subprocess
 import datetime
 import ctypes
 import re
+import shutil
 import traceback
 
 """
@@ -29,7 +30,7 @@ from PyQt6.QtWidgets import (
     QLabel, QComboBox, QLineEdit, QPushButton, QCheckBox,
     QSpinBox, QGroupBox, QTextEdit, QProgressBar, QFileDialog,
     QMessageBox, QDateEdit, QSplashScreen, QDialog, QDialogButtonBox,
-    QSpacerItem, QSizePolicy, QGridLayout, QTabWidget, QInputDialog,
+    QSpacerItem, QSizePolicy, QGridLayout, QInputDialog,
     QListWidget, QListWidgetItem, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate, QTimer, QSize
@@ -63,8 +64,11 @@ APP_NAME = "Robocopy GUI"
 VERSION = "2.1"
 CONFIG_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'py_config.json')
 LOGO_FILENAME = "logo.png"
-PRESETS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'presets.json')
 TASKS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'tasks.json')
+# Alter Dateiname der früheren, separaten "Voreinstellungen"-Funktion - wird
+# nur noch für die einmalige Migration nach TASKS_FILE gelesen (siehe
+# MainWindow._migrate_legacy_presets).
+LEGACY_PRESETS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'presets.json')
 
 # Layout constants
 COL_WIDTH = 11
@@ -284,10 +288,13 @@ class MainWindow(QMainWindow):
         # hätte bei kleinem Fenster Zeilen abgeschnitten oder das Fenster
         # unnötig hoch erzwungen.
         self.setMinimumWidth(1000)
-        self.presets = {}
 
-        # Task-Queue: Liste von Job-Dicts (name/action/source/target/days/acl/verbose/log)
+        # Tasks: persistente Liste gespeicherter Job-Definitionen
+        # (name/action/source/target/days/acl/verbose/log), siehe TASKS_FILE.
         self.queue_tasks = []
+        # Die tatsächlich für den aktuellen Warteschlangen-Lauf ausgewählten
+        # Tasks (Teilmenge von queue_tasks, in Listreihenfolge) - siehe start_queue().
+        self._active_run_tasks = []
         self.queue_pos = 0
         self.queue_results = []
         self.queue_running = False
@@ -301,6 +308,21 @@ class MainWindow(QMainWindow):
         self.init_menu()
         self.init_ui()
         self.load_config()
+        self.check_robocopy_available()
+
+    def check_robocopy_available(self):
+        """Prüft einmalig beim Start, ob robocopy.exe im PATH gefunden wird.
+        robocopy ist normalerweise fester Bestandteil von Windows, kann aber
+        z.B. in stark abgespeckten Windows-Umgebungen oder bei einem kaputten
+        PATH fehlen. Ohne diesen Hinweis würde man den Fehler erst als rohe
+        Python-Exception im Log sehen, sobald man einen Lauf startet."""
+        if shutil.which("robocopy") is None:
+            QMessageBox.warning(
+                self, "robocopy nicht gefunden",
+                "Das Programm \"robocopy.exe\" wurde im PATH nicht gefunden.\n\n"
+                "robocopy ist normalerweise Teil von Windows - ohne dieses Tool "
+                "kann diese Anwendung keine Kopier-/Löschvorgänge ausführen."
+            )
 
     def apply_styles(self):
         self.setStyleSheet("""
@@ -349,14 +371,6 @@ class MainWindow(QMainWindow):
             QPushButton#btn_red { background-color: #c42b1c; border: 1px solid #c42b1c; }
             QPushButton#btn_red:hover { background-color: #d73a2d; }
             QPushButton#btn_red:pressed { background-color: #a92418; }
-            QTabWidget::pane { border: 1px solid #3a3a3a; border-radius: 8px; background-color: #222222; top: -1px; }
-            QTabBar::tab {
-                background-color: #2b2b2b; color: #b0b0b0; padding: 7px 16px;
-                border: 1px solid #3a3a3a; border-bottom: none;
-                border-top-left-radius: 6px; border-top-right-radius: 6px; margin-right: 2px;
-            }
-            QTabBar::tab:selected { background-color: #222222; color: #4fb3e8; font-weight: 600; }
-            QTabBar::tab:hover:!selected { background-color: #333333; color: #e0e0e0; }
             QListWidget {
                 background-color: #191919; border: 1px solid #3e3e3e; border-radius: 5px;
                 color: #d4d4d4; outline: 0; padding: 2px;
@@ -529,74 +543,66 @@ class MainWindow(QMainWindow):
         h_mid.addWidget(grp_del, stretch=1)
         main_layout.addLayout(h_mid)
 
-        # Presets & Task-Queue (in Tabs, um vertikalen Platz zu sparen)
-        tabs_presets_queue = QTabWidget()
-        tabs_presets_queue.setMaximumHeight(200)
+        # Tasks: eine gespeicherte, benannte Liste von Jobs (Aktion/Quelle/
+        # Ziel/Optionen). Ersetzt die frühere Trennung von "Voreinstellungen"
+        # (nur laden) und "Warteschlange" (nur ablegen) durch ein Konzept:
+        # eine Task laden füllt das Formular oben zum Bearbeiten/Ausführen,
+        # mehrere Tasks markieren + "Warteschlange starten" führt sie in
+        # Listreihenfolge nacheinander aus.
+        grp_tasks = QGroupBox("Tasks")
+        layout_tasks = QVBoxLayout()
+        layout_tasks.setSpacing(6)
 
-        tab_presets = QWidget()
-        layout_presets = QHBoxLayout(tab_presets)
-        self.cmb_presets = QComboBox()
-        self.cmb_presets.setEditable(True)
-        btn_save_preset = QPushButton(" Speichern")
-        btn_save_preset.setIcon(icon('fa5s.save'))
-        btn_save_preset.clicked.connect(self.save_preset)
-        btn_load_preset = QPushButton(" Laden")
-        btn_load_preset.setIcon(icon('fa5s.file-import'))
-        btn_load_preset.clicked.connect(self.load_preset)
-        btn_delete_preset = QPushButton("Löschen")
-        btn_delete_preset.setIcon(icon('fa5s.trash'))
-        btn_delete_preset.clicked.connect(self.delete_preset)
-        btn_delete_preset.setToolTip("Löscht die ausgewählte Voreinstellung")
-        btn_delete_preset.setFixedWidth(110)
-        layout_presets.addWidget(self.cmb_presets)
-        layout_presets.addWidget(btn_save_preset)
-        layout_presets.addWidget(btn_load_preset)
-        layout_presets.addWidget(btn_delete_preset)
-        tabs_presets_queue.addTab(tab_presets, "Voreinstellungen")
-
-        tab_queue = QWidget()
-        layout_queue = QVBoxLayout(tab_queue)
-        layout_queue.setSpacing(6)
-
-        row_queue_add = QHBoxLayout()
+        row_task_top = QHBoxLayout()
         self.cmb_task_action = QComboBox()
         self.cmb_task_action.addItems(list(ACTION_PARAMS.keys()))
-        self.cmb_task_action.setToolTip("Aktionstyp für die neue Task.")
-        btn_add_task = QPushButton(" Zur Queue hinzufügen")
-        btn_add_task.setIcon(icon('fa5s.plus-circle'))
-        btn_add_task.clicked.connect(self.add_task_to_queue)
-        btn_add_task.setToolTip("Fügt Quelle/Ziel/Optionen der aktuellen Formularfelder als Task zur Warteschlange hinzu.")
-        row_queue_add.addWidget(QLabel("Aktion:"))
-        row_queue_add.addWidget(self.cmb_task_action)
-        row_queue_add.addWidget(btn_add_task)
-        row_queue_add.addStretch()
-        layout_queue.addLayout(row_queue_add)
+        self.cmb_task_action.setToolTip("Aktionstyp, der beim Speichern dieser Task zugeordnet wird.")
+        row_task_top.addWidget(QLabel("Aktion:"))
+        row_task_top.addWidget(self.cmb_task_action)
+        row_task_top.addStretch()
+        layout_tasks.addLayout(row_task_top)
 
         self.list_tasks = QListWidget()
-        self.list_tasks.setMinimumHeight(40)
+        self.list_tasks.setMinimumHeight(50)
+        self.list_tasks.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.list_tasks.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.list_tasks.setToolTip(
+            "Strg/Umschalt-Klick markiert mehrere Tasks für die Warteschlange.\n"
+            "Per Drag & Drop lässt sich die Reihenfolge ändern."
+        )
         self.list_tasks.model().rowsMoved.connect(self.on_tasks_reordered)
-        layout_queue.addWidget(self.list_tasks)
+        self.list_tasks.itemSelectionChanged.connect(self._update_queue_button_label)
+        layout_tasks.addWidget(self.list_tasks)
 
-        row_queue_actions = QHBoxLayout()
-        btn_remove_task = QPushButton(" Entfernen")
-        btn_remove_task.setIcon(icon('fa5s.trash'))
-        btn_remove_task.clicked.connect(self.remove_selected_task)
-        btn_clear_queue = QPushButton(" Queue leeren")
-        btn_clear_queue.setIcon(icon('fa5s.broom'))
-        btn_clear_queue.clicked.connect(self.clear_queue)
+        row_task_actions = QHBoxLayout()
+        btn_save_task = QPushButton(" Speichern")
+        btn_save_task.setIcon(icon('fa5s.save'))
+        btn_save_task.setToolTip("Speichert die aktuellen Formularfelder + Aktion als Task (überschreibt bei gleichem Namen).")
+        btn_save_task.clicked.connect(self.save_task)
+        btn_load_task = QPushButton(" Laden")
+        btn_load_task.setIcon(icon('fa5s.file-import'))
+        btn_load_task.setToolTip("Lädt die markierte Task in das Formular oben zum Bearbeiten/Ausführen.")
+        btn_load_task.clicked.connect(self.load_task)
+        btn_delete_task = QPushButton(" Löschen")
+        btn_delete_task.setIcon(icon('fa5s.trash'))
+        btn_delete_task.setToolTip("Löscht die markierte(n) Task(s) aus der Liste.")
+        btn_delete_task.clicked.connect(self.remove_selected_task)
         self.btn_start_queue = QPushButton(" Warteschlange starten")
         self.btn_start_queue.setIcon(icon('fa5s.play', color='white'))
         self.btn_start_queue.setObjectName("btn_blue")
+        self.btn_start_queue.setToolTip("Führt alle markierten Tasks in Listreihenfolge nacheinander aus.")
         self.btn_start_queue.clicked.connect(self.start_queue)
-        row_queue_actions.addWidget(btn_remove_task)
-        row_queue_actions.addWidget(btn_clear_queue)
-        row_queue_actions.addStretch()
-        row_queue_actions.addWidget(self.btn_start_queue)
-        layout_queue.addLayout(row_queue_actions)
+        row_task_actions.addWidget(btn_save_task)
+        row_task_actions.addWidget(btn_load_task)
+        row_task_actions.addWidget(btn_delete_task)
+        row_task_actions.addStretch()
+        row_task_actions.addWidget(self.btn_start_queue)
+        layout_tasks.addLayout(row_task_actions)
+        self._update_queue_button_label()
 
-        tabs_presets_queue.addTab(tab_queue, "Warteschlange")
-        main_layout.addWidget(tabs_presets_queue)
+        grp_tasks.setLayout(layout_tasks)
+        grp_tasks.setMaximumHeight(190)
+        main_layout.addWidget(grp_tasks)
 
         # Actions
         grp_actions = QGroupBox("Ausführung")
@@ -935,26 +941,51 @@ class MainWindow(QMainWindow):
             except:
                 pass
 
-        # Lade Presets (falls vorhanden) und fülle das Preset-Dropdown
-        try:
-            if os.path.exists(PRESETS_FILE):
-                with open(PRESETS_FILE, 'r', encoding='utf-8') as pf:
-                    self.presets = json.load(pf)
-                    for name in self.presets:
-                        self.cmb_presets.addItem(name)
-        except Exception:
-            # Nicht kritisch – Presets werden dann nicht geladen
-            pass
-
-        # Lade gespeicherte Task-Queue (falls vorhanden)
+        # Lade gespeicherte Tasks (falls vorhanden)
         try:
             if os.path.exists(TASKS_FILE):
                 with open(TASKS_FILE, 'r', encoding='utf-8') as tf:
                     self.queue_tasks = json.load(tf)
-                    self.refresh_queue_list()
         except Exception:
-            # Nicht kritisch – Queue wird dann leer gestartet
+            # Nicht kritisch – Tasks werden dann leer gestartet
             pass
+
+        self._migrate_legacy_presets()
+        self.refresh_queue_list()
+
+    def _migrate_legacy_presets(self):
+        """Einmalige Migration: frühere "Voreinstellungen" (presets.json)
+        gab es als separates Konzept, das durch die Tasks-Liste ersetzt
+        wurde. Damit dabei keine vom Nutzer bereits gespeicherten
+        Voreinstellungen verloren gehen, werden sie hier als normale Tasks
+        (Standardaktion "Update") übernommen. Läuft nur einmal: presets.json
+        wird danach umbenannt, damit nicht bei jedem Start erneut importiert wird."""
+        if not os.path.exists(LEGACY_PRESETS_FILE):
+            return
+        try:
+            with open(LEGACY_PRESETS_FILE, 'r', encoding='utf-8') as pf:
+                legacy_presets = json.load(pf)
+            existing_names = {t['name'] for t in self.queue_tasks}
+            imported = 0
+            for name, p in legacy_presets.items():
+                if name in existing_names:
+                    continue
+                self.queue_tasks.append({
+                    "name": name,
+                    "action": "Update",
+                    "source": p.get("source", ""),
+                    "target": p.get("target", ""),
+                    "days": p.get("days", 0),
+                    "acl": p.get("acl", False),
+                    "verbose": p.get("verbose", False),
+                    "log": p.get("log", False),
+                })
+                imported += 1
+            if imported:
+                self.save_tasks()
+            os.replace(LEGACY_PRESETS_FILE, LEGACY_PRESETS_FILE + ".migrated")
+        except Exception as e:
+            print(f"Konnte alte Voreinstellungen nicht migrieren: {e}")
 
     # load_config: liest zuletzt verwendete Pfadpaare aus der Config-Datei und
     # füllt die Dropdowns. Fehler werden still ignoriert (nicht-kritisch).
@@ -999,83 +1030,18 @@ class MainWindow(QMainWindow):
                     return False
         return True
 
-    def save_preset(self):
-        name = self.cmb_presets.currentText().strip()
-        if not name:
-            QMessageBox.warning(self, "Fehler", "Bitte einen Namen für die Voreinstellung angeben.")
-            return
-        params = {
-            "source": self.cmb_source.currentText(),
-            "target": self.cmb_target.currentText(),
-            "days": self.spin_days.value(),
-            "acl": self.chk_acl.isChecked(),
-            "verbose": self.chk_verbose.isChecked(),
-            "log": self.chk_log.isChecked(),
-        }
-        # Speichere in-memory und in Datei
-        try:
-            self.presets[name] = params
-            # Vermeide Doppelungen im Combo
-            if self.cmb_presets.findText(name) == -1:
-                self.cmb_presets.addItem(name)
-            # Stelle sicher, dass das Verzeichnis existiert
-            os.makedirs(os.path.dirname(PRESETS_FILE), exist_ok=True)
-            with open(PRESETS_FILE, 'w', encoding='utf-8') as pf:
-                json.dump(self.presets, pf, ensure_ascii=False, indent=2)
-            QMessageBox.information(self, "Gespeichert", f"Voreinstellung '{name}' wurde gespeichert.")
-        except Exception as e:
-            QMessageBox.warning(self, "Fehler", f"Konnte Voreinstellung nicht speichern: {e}")
-
-    def load_preset(self):
-        name = self.cmb_presets.currentText()
-        if name in self.presets:
-            p = self.presets[name]
-            self.cmb_source.setCurrentText(p["source"])
-            self.cmb_target.setCurrentText(p["target"])
-            self.spin_days.setValue(p["days"])
-            self.chk_acl.setChecked(p["acl"])
-            self.chk_verbose.setChecked(p["verbose"])
-            self.chk_log.setChecked(p["log"])
-
-    def delete_preset(self):
-        name = self.cmb_presets.currentText().strip()
-        if not name or name not in self.presets:
-            QMessageBox.warning(self, "Fehler", "Bitte eine gültige Voreinstellung zum Löschen auswählen.")
-            return
-
-        reply = QMessageBox.question(
-            self, "Voreinstellung löschen",
-            f"Sind Sie sicher, dass Sie die Voreinstellung '{name}' löschen möchten?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                # Aus dem Dictionary entfernen
-                del self.presets[name]
-
-                # Aus der ComboBox entfernen
-                index = self.cmb_presets.findText(name)
-                if index != -1:
-                    self.cmb_presets.removeItem(index)
-
-                # In Datei speichern
-                with open(PRESETS_FILE, 'w', encoding='utf-8') as pf:
-                    json.dump(self.presets, pf, ensure_ascii=False, indent=2)
-
-                QMessageBox.information(self, "Gelöscht", f"Voreinstellung '{name}' wurde gelöscht.")
-            except Exception as e:
-                QMessageBox.warning(self, "Fehler", f"Konnte Voreinstellung nicht löschen: {e}")
-
-    # --- Task-Queue -----------------------------------------------------
+    # --- Tasks (speichern/laden/löschen + Warteschlange) ----------------
 
     def refresh_queue_list(self):
+        selected_names = {it.data(Qt.ItemDataRole.UserRole)['name'] for it in self.list_tasks.selectedItems()}
         self.list_tasks.clear()
         for t in self.queue_tasks:
             item = QListWidgetItem(f"[{t['action']}] {t['name']}  ({t['source']} → {t['target']})")
             item.setData(Qt.ItemDataRole.UserRole, t)
             self.list_tasks.addItem(item)
+            if t['name'] in selected_names:
+                item.setSelected(True)
+        self._update_queue_button_label()
 
     def save_tasks(self):
         try:
@@ -1083,21 +1049,30 @@ class MainWindow(QMainWindow):
             with open(TASKS_FILE, 'w', encoding='utf-8') as tf:
                 json.dump(self.queue_tasks, tf, ensure_ascii=False, indent=2)
         except Exception as e:
-            self.append_log(f"WARNUNG: Konnte Task-Queue nicht speichern: {e}", "WARNING")
+            self.append_log(f"WARNUNG: Konnte Tasks nicht speichern: {e}", "WARNING")
 
-    def add_task_to_queue(self):
+    def save_task(self):
+        """Speichert die aktuellen Formularfelder + gewählte Aktion als Task.
+        Ist bereits eine Task markiert, wird deren Name als Vorschlag genutzt;
+        stimmt der eingegebene Name mit einer vorhandenen Task überein, wird
+        diese aktualisiert (Position bleibt erhalten), sonst wird neu angehängt."""
         src = self.cmb_source.currentText().strip()
         dst = self.cmb_target.currentText().strip()
         if not src or not dst:
-            QMessageBox.warning(self, "Fehler", "Bitte Quell- und Zielordner angeben, bevor eine Task hinzugefügt wird.")
+            QMessageBox.warning(self, "Fehler", "Bitte Quell- und Zielordner angeben, bevor eine Task gespeichert wird.")
             return
         action = self.cmb_task_action.currentText()
-        suggested = f"{action}: {src} → {dst}"
-        name, ok = QInputDialog.getText(self, "Task benennen", "Name der Task:", text=suggested)
+        current_item = self.list_tasks.currentItem()
+        if current_item is not None:
+            suggested = current_item.data(Qt.ItemDataRole.UserRole)['name']
+        else:
+            suggested = f"{action}: {src} → {dst}"
+        name, ok = QInputDialog.getText(self, "Task speichern", "Name der Task:", text=suggested)
         if not ok:
             return
+        name = name.strip() or suggested
         task = {
-            "name": name.strip() or suggested,
+            "name": name,
             "action": action,
             "source": src,
             "target": dst,
@@ -1106,29 +1081,51 @@ class MainWindow(QMainWindow):
             "verbose": self.chk_verbose.isChecked(),
             "log": self.chk_log.isChecked(),
         }
-        self.queue_tasks.append(task)
+        existing_index = next((i for i, t in enumerate(self.queue_tasks) if t['name'] == name), None)
+        if existing_index is not None:
+            self.queue_tasks[existing_index] = task
+        else:
+            self.queue_tasks.append(task)
         self.refresh_queue_list()
         self.save_tasks()
+
+    def load_task(self):
+        item = self.list_tasks.currentItem()
+        if item is None:
+            QMessageBox.warning(self, "Fehler", "Bitte zuerst eine Task in der Liste markieren.")
+            return
+        t = item.data(Qt.ItemDataRole.UserRole)
+        self.cmb_source.setCurrentText(t["source"])
+        self.cmb_target.setCurrentText(t["target"])
+        self.spin_days.setValue(t["days"])
+        self.chk_acl.setChecked(t["acl"])
+        self.chk_verbose.setChecked(t["verbose"])
+        self.chk_log.setChecked(t["log"])
+        self.cmb_task_action.setCurrentText(t["action"])
 
     def remove_selected_task(self):
-        row = self.list_tasks.currentRow()
-        if row < 0:
+        items = self.list_tasks.selectedItems()
+        if not items:
+            QMessageBox.warning(self, "Fehler", "Bitte mindestens eine Task in der Liste markieren.")
             return
-        del self.queue_tasks[row]
-        self.refresh_queue_list()
-        self.save_tasks()
-
-    def clear_queue(self):
-        if not self.queue_tasks:
-            return
+        names = [it.data(Qt.ItemDataRole.UserRole)['name'] for it in items]
         reply = QMessageBox.question(
-            self, "Queue leeren", "Wirklich alle Tasks aus der Warteschlange entfernen?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            self, "Task(s) löschen",
+            "Folgende Task(s) wirklich löschen?\n\n" + "\n".join(f"- {n}" for n in names),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            self.queue_tasks = []
+            self.queue_tasks = [t for t in self.queue_tasks if t['name'] not in names]
             self.refresh_queue_list()
             self.save_tasks()
+
+    def _update_queue_button_label(self):
+        count = len(self.list_tasks.selectedItems())
+        if count > 0:
+            self.btn_start_queue.setText(f" Warteschlange starten ({count})")
+        else:
+            self.btn_start_queue.setText(" Warteschlange starten")
 
     def on_tasks_reordered(self):
         # Nach Drag&Drop im QListWidget: Reihenfolge der Task-Liste aus der
@@ -1142,14 +1139,20 @@ class MainWindow(QMainWindow):
         self.save_tasks()
 
     def start_queue(self):
-        if not self.queue_tasks:
-            QMessageBox.information(self, "Warteschlange leer", "Es sind keine Tasks in der Warteschlange.")
+        selected_items = sorted(self.list_tasks.selectedItems(), key=lambda it: self.list_tasks.row(it))
+        if not selected_items:
+            QMessageBox.information(
+                self, "Keine Auswahl",
+                "Bitte mindestens eine Task in der Liste markieren (Strg/Umschalt-Klick), "
+                "die als Warteschlange ausgeführt werden soll."
+            )
             return
         if hasattr(self, 'worker') and self.worker.isRunning():
             QMessageBox.warning(self, "Läuft bereits", "Es läuft bereits ein Robocopy-Vorgang.")
             return
 
-        destructive = [t for t in self.queue_tasks if t['action'] in ("Mirror", "Purge")]
+        tasks = [it.data(Qt.ItemDataRole.UserRole) for it in selected_items]
+        destructive = [t for t in tasks if t['action'] in ("Mirror", "Purge")]
         if destructive:
             names = "\n".join(f"- {t['name']}" for t in destructive)
             reply = QMessageBox.question(
@@ -1162,20 +1165,21 @@ class MainWindow(QMainWindow):
                 return
 
         self.txt_log.clear()
+        self._active_run_tasks = tasks
         self.queue_pos = 0
         self.queue_results = []
         self.queue_running = True
-        self._queue_total = len(self.queue_tasks)
+        self._queue_total = len(self._active_run_tasks)
         self.append_log(f"=== WARTESCHLANGE GESTARTET ({self._queue_total} Tasks) ===", "HEADER")
         self._run_next_queue_task()
 
     def _run_next_queue_task(self):
         if not self.queue_running:
             return
-        if self.queue_pos >= len(self.queue_tasks):
+        if self.queue_pos >= len(self._active_run_tasks):
             self._finish_queue()
             return
-        task = self.queue_tasks[self.queue_pos]
+        task = self._active_run_tasks[self.queue_pos]
         self.queue_pos += 1
         label = f"[Queue {self.queue_pos}/{self._queue_total}] {task['name']}"
         params = list(ACTION_PARAMS.get(task['action'], []))
