@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
     QListWidget, QListWidgetItem, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate, QTimer, QSize
-from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap, QAction
+from PyQt6.QtGui import QFont, QColor, QIcon, QPixmap, QAction, QFontMetrics
 
 try:
     import qtawesome as qta
@@ -278,7 +278,12 @@ class MainWindow(QMainWindow):
         mode_str = "[ADMIN]" if is_admin() else "[USER]"
         self.setWindowTitle(f"{APP_NAME} v{VERSION}  {mode_str}")
         self.resize(1150, 850)
-        self.setMinimumSize(1000, 800)
+        # Nur die Breite fest begrenzen (Lesbarkeit); die Höhe bleibt dem von
+        # Qt aus dem Layout berechneten, inhaltlich korrekten Minimum
+        # überlassen (siehe minimumSizeHint) - ein geratener fester Wert
+        # hätte bei kleinem Fenster Zeilen abgeschnitten oder das Fenster
+        # unnötig hoch erzwungen.
+        self.setMinimumWidth(1000)
         self.presets = {}
 
         # Task-Queue: Liste von Job-Dicts (name/action/source/target/days/acl/verbose/log)
@@ -400,13 +405,13 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(15)
-        main_layout.setContentsMargins(20, 10, 20, 20)
+        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(16, 8, 16, 12)
 
         # Paths
         grp_paths = QGroupBox("Pfadauswahl")
         layout_paths = QVBoxLayout()
-        layout_paths.setSpacing(10)
+        layout_paths.setSpacing(8)
 
         def create_path_row(label_text, combo):
             row = QHBoxLayout()
@@ -442,6 +447,7 @@ class MainWindow(QMainWindow):
 
         grp_opts = QGroupBox("Kopier-Optionen")
         layout_opts = QVBoxLayout()
+        layout_opts.setSpacing(6)
 
         r1 = QHBoxLayout()
         r1.addWidget(QLabel("Dateialter:"))
@@ -482,10 +488,10 @@ class MainWindow(QMainWindow):
         self.chk_verbose.setToolTip("Zeigt auch übersprungene Dateien an. Füllt das Log!")
         layout_opts.addWidget(self.chk_verbose)
 
-        self.chk_log = QCheckBox(f"Logdatei erstellen in {self.log_dir}")
+        self.chk_log = QCheckBox()
         # Default: do not create a log file unless the user enables it
         self.chk_log.setChecked(False)
-        self.chk_log.setToolTip(f"Erstellt eine detaillierte Logdatei des Robocopy-Vorgangs in {self.log_dir}.")
+        self._update_log_checkbox_text()
         layout_opts.addWidget(self.chk_log)
 
         grp_opts.setLayout(layout_opts)
@@ -494,7 +500,7 @@ class MainWindow(QMainWindow):
         # Delete
         grp_del = QGroupBox("Spezial-Löschen (Ziel)")
         layout_del = QGridLayout()
-        layout_del.setVerticalSpacing(10)
+        layout_del.setVerticalSpacing(8)
 
         self.date_edit = QDateEdit()
         self.date_edit.setDate(QDate.currentDate())
@@ -550,7 +556,7 @@ class MainWindow(QMainWindow):
 
         tab_queue = QWidget()
         layout_queue = QVBoxLayout(tab_queue)
-        layout_queue.setSpacing(8)
+        layout_queue.setSpacing(6)
 
         row_queue_add = QHBoxLayout()
         self.cmb_task_action = QComboBox()
@@ -567,7 +573,7 @@ class MainWindow(QMainWindow):
         layout_queue.addLayout(row_queue_add)
 
         self.list_tasks = QListWidget()
-        self.list_tasks.setMinimumHeight(80)
+        self.list_tasks.setMinimumHeight(40)
         self.list_tasks.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.list_tasks.model().rowsMoved.connect(self.on_tasks_reordered)
         layout_queue.addWidget(self.list_tasks)
@@ -654,8 +660,12 @@ class MainWindow(QMainWindow):
 
         self.txt_log = QTextEdit()
         self.txt_log.setReadOnly(True)
-        # Give the log more room to display output
-        self.txt_log.setMinimumHeight(350)
+        # Kein festes setMinimumHeight: Das würde die Mindestgröße des ganzen
+        # Fensters unnötig aufblähen. Die großzügige Höhe im Alltag kommt
+        # stattdessen vom Stretch-Faktor unten + der initialen Fenstergröße;
+        # bei sehr kleinem Fenster darf das Log entsprechend schrumpfen (und
+        # bleibt dank Scrollbar weiter nutzbar).
+        self.txt_log.setMinimumHeight(80)
         self.txt_log.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main_layout.addWidget(self.txt_log, 3)
 
@@ -1221,7 +1231,17 @@ class MainWindow(QMainWindow):
         dir = QFileDialog.getExistingDirectory(self, "Log-Ordner auswählen", self.log_dir)
         if dir:
             self.log_dir = dir
-            self.chk_log.setText(f"Logdatei erstellen in {self.log_dir}")
+            self._update_log_checkbox_text()
+
+    def _update_log_checkbox_text(self):
+        """Zeigt den Log-Pfad gekürzt in der Checkbox an (voller Pfad im
+        Tooltip), damit ein sehr langer, frei gewählter Ordnerpfad nicht die
+        Mindestbreite des Fensters unkontrolliert aufbläht."""
+        prefix = "Logdatei erstellen in "
+        metrics = QFontMetrics(self.chk_log.font())
+        elided_path = metrics.elidedText(self.log_dir, Qt.TextElideMode.ElideMiddle, 260)
+        self.chk_log.setText(prefix + elided_path)
+        self.chk_log.setToolTip(f"Erstellt eine detaillierte Logdatei des Robocopy-Vorgangs in {self.log_dir}.")
 
     def clear_log(self):
         self.txt_log.clear()
