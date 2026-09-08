@@ -64,4 +64,4 @@ Sicherheit / Hinweise:
 - `robocopy` kann Dateien löschen (z. B. bei Mirror/Purge) – diese Löschungen laufen direkt über robocopy und landen **nicht** im Papierkorb. Prüfe Pfade sorgsam, insbesondere bei Mirror.
 - Konfiguration (zuletzt verwendete Pfade, gespeicherte Tasks) liegt unter `%APPDATA%\RobocopyGUI\`.
 
-Lizenz: Unlicense / freie Verwendung (Bitte anpassen, falls anders gewünscht).
+Lizenz: [MIT](LICENSE) – freie Nutzung, Veränderung und Weitergabe, auch kommerziell, ohne Gewährleistung.
