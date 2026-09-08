@@ -1,0 +1,10 @@
+# PyInstaller Build-Cache (reine Zwischendateien, bei jedem Build neu erzeugt)
+build/
+
+# Python Bytecode-Cache
+__pycache__/
+*.pyc
+
+# Signing-Zertifikate - nie committen
+*.pfx
+*.p12

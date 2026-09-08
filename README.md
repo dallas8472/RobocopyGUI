@@ -19,7 +19,7 @@ Eine schlanke grafische Oberfläche für das Windows-Tool `robocopy`, implementi
 - `logo.png`, `RobocopyGUI.ico` – App-Logo / Icon
 - `RobocopyGUI.spec` – PyInstaller-Spec (bündelt auch das benötigte Icon-Font-Subset von `qtawesome`)
 - `dist/RobocopyGUI.exe` – gebaute Einzeldatei (falls vorhanden)
-- Hilfsskripte für Build/Sign/Repo-Inspektion
+- `_create_ico.py` – erzeugt `RobocopyGUI.ico` aus `logo.png` (benötigt Pillow)
 
 **Voraussetzungen (Entwicklung)**
 - Windows
