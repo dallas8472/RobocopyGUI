@@ -195,9 +195,17 @@ class RobocopyWorker(QThread):
                                 break
 
                         if current_label:
-                            vals = re.findall(r"(\d+:\d+:\d+|\d+(?:\.\d+)?\s*[tgmkTGMK]?)", clean_line)
+                            # \s* liegt bewusst INNERHALB der optionalen Einheiten-Gruppe:
+                            # so wird Leerraum nur zusammen mit einer folgenden Einheit
+                            # (t/g/m/k) verschluckt. Läge \s* davor (wie ursprünglich),
+                            # frisst es auch bei fehlender Einheit gierig den gesamten
+                            # Zwischenraum zur nächsten Zahl mit auf - der Wert landet
+                            # dann samt Leerzeichen VOR der Zahl im String, wodurch die
+                            # anschließende Rechtsbündigkeit (":>11") nicht mehr greift
+                            # und die Tabelle im Log zerfranst aussieht.
+                            vals = re.findall(r"(\d+:\d+:\d+|\d+(?:\.\d+)?(?:\s*[tgmkTGMK])?)", clean_line)
                             if len(vals) >= 6:
-                                v = vals[-6:]
+                                v = [x.strip() for x in vals[-6:]]
                                 formatted = f"{current_label:<{LABEL_WIDTH}} {v[0]:>{COL_WIDTH}} {v[1]:>{COL_WIDTH}} {v[2]:>{COL_WIDTH}} {v[3]:>{COL_WIDTH}} {v[4]:>{COL_WIDTH}} {v[5]:>{COL_WIDTH}}"
                                 self.log_signal.emit(formatted, "SUMMARY_BOLD")
                                 continue
