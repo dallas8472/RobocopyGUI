@@ -537,11 +537,12 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
-        tasks_menu = menubar.addMenu('Tasks')
-        manage_tasks_action = QAction('Tasks verwalten...', self)
+        # Direkt anklickbare Aktion statt Dropdown-Menü, damit "Tasks" mit
+        # einem Klick unmittelbar die Verwaltung öffnet.
+        manage_tasks_action = QAction('Tasks', self)
         self._reg_icon(manage_tasks_action, 'fa5s.list')
         manage_tasks_action.triggered.connect(self.open_task_manager)
-        tasks_menu.addAction(manage_tasks_action)
+        menubar.addAction(manage_tasks_action)
 
         view_menu = menubar.addMenu('Ansicht')
         self.light_theme_action = QAction('Helles Design', self)
