@@ -608,6 +608,15 @@ class MainWindow(QMainWindow):
         grp_actions.setMaximumHeight(120)
         main_layout.addWidget(grp_actions)
 
+        # Widgets, die während eines laufenden Jobs gesperrt werden (siehe
+        # _set_busy). Bewusst NICHT die ganze grp_actions-Gruppe oder gar
+        # centralWidget(), da btn_cancel sonst als Kind-Widget automatisch
+        # mitgesperrt würde und sich ein laufender Job nie abbrechen ließe.
+        self._lockable_widgets = [
+            grp_paths, grp_opts, grp_del,
+            btn_struct, btn_copy, btn_mirror, btn_purge, btn_comp,
+        ]
+
         # Footer
         self.lbl_status = QLabel("Bereit")
         self.lbl_status.setObjectName("status_label")
@@ -664,6 +673,13 @@ class MainWindow(QMainWindow):
             else:
                 self.cmb_target.setCurrentText(path)
             event.acceptProposedAction()
+
+    def _set_busy(self, busy):
+        """Sperrt/entsperrt die Eingabe-Widgets während ein Job läuft.
+        btn_cancel bleibt bewusst außen vor, damit ein laufender Job sich
+        immer abbrechen lässt."""
+        for w in self._lockable_widgets:
+            w.setEnabled(not busy)
 
     def get_log_file(self):
         if not os.path.exists(self.log_dir):
@@ -805,10 +821,10 @@ class MainWindow(QMainWindow):
         self.worker.log_signal.connect(self.append_log)
         self.worker.finished_signal.connect(lambda code: self._job_done(name, code, on_finished))
         self.worker.start()
-        self.centralWidget().setEnabled(False)
+        self._set_busy(True)
 
     def _job_done(self, name, code, on_finished):
-        self.centralWidget().setEnabled(True)
+        self._set_busy(False)
         self.progress.setRange(0, 100)
         self.progress.setValue(100)
         success = code is not None and 0 <= code < 8
@@ -1082,7 +1098,7 @@ class MainWindow(QMainWindow):
             self.worker.wait()
             self.append_log("--- ABGEBROCHEN ---", "ERROR")
             self.btn_cancel.setEnabled(False)
-            self.centralWidget().setEnabled(True)
+            self._set_busy(False)
             self.progress.setValue(0)
             self.lbl_status.setText("Abgebrochen")
             if self.queue_running:
