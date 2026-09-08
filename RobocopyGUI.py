@@ -65,6 +65,8 @@ VERSION = "2.1"
 CONFIG_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'py_config.json')
 LOGO_FILENAME = "logo.png"
 TASKS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'tasks.json')
+TASK_GROUPS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'task_groups.json')
+SETTINGS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'settings.json')
 # Alter Dateiname der früheren, separaten "Voreinstellungen"-Funktion - wird
 # nur noch für die einmalige Migration nach TASKS_FILE gelesen (siehe
 # MainWindow._migrate_legacy_presets).
@@ -73,6 +75,67 @@ LEGACY_PRESETS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'presets
 # Layout constants
 COL_WIDTH = 11
 LABEL_WIDTH = 12
+
+# Farb-Paletten für Dunkel-/Hell-Design. apply_styles() baut daraus das QSS,
+# _icon_color() liefert die passende Standard-Icon-Farbe (Icons auf farbigen
+# Buttons wie btn_blue/btn_red bekommen weiterhin explizit color='white' und
+# bleiben davon unberührt, siehe _reg_icon).
+PALETTES = {
+    "dark": {
+        "window_bg": "#1e1e1e", "text": "#e0e0e0", "text_muted": "#888888",
+        "menubar_bg": "#252526", "menubar_border": "#3e3e3e", "menu_item_hover": "#3e3e3e",
+        "tooltip_bg": "#2d2d2d", "tooltip_text": "#f0f0f0", "tooltip_border": "#007acc",
+        "groupbox_bg": "#222222", "groupbox_border": "#3a3a3a", "groupbox_title": "#4fb3e8",
+        "input_bg": "#2b2b2b", "input_border": "#3e3e3e", "input_text": "#f0f0f0", "input_focus_border": "#4fb3e8",
+        "spin_btn_bg": "#3c3c3c", "spin_btn_hover": "#4a4a4a",
+        "checkbox_bg": "#2b2b2b", "checkbox_border": "#5a5a5a", "checkbox_disabled_bg": "#262626", "checkbox_disabled_border": "#3a3a3a",
+        "button_bg": "#3c3c3c", "button_border": "#454545", "button_text": "white",
+        "button_hover": "#4a4a4a", "button_hover_border": "#5a5a5a", "button_pressed": "#333333",
+        "button_disabled_bg": "#2a2a2a", "button_disabled_text": "#777777", "button_disabled_border": "#333333",
+        "accent": "#007acc", "accent_hover": "#1f8ad2", "accent_pressed": "#006bb3",
+        "danger": "#c42b1c", "danger_hover": "#d73a2d", "danger_pressed": "#a92418",
+        "list_bg": "#191919", "list_border": "#3e3e3e", "list_text": "#d4d4d4", "list_item_hover": "#2d2d2d",
+        "log_bg": "#101010", "log_border": "#3e3e3e", "log_text": "#cccccc",
+        "progress_bg": "#252526",
+        "status_label": "#4fb3e8",
+        "scrollbar_track": "#1e1e1e", "scrollbar_handle": "#454545", "scrollbar_handle_hover": "#5a5a5a",
+        "icon_default": "#e0e0e0",
+    },
+    "light": {
+        "window_bg": "#f3f3f3", "text": "#1e1e1e", "text_muted": "#767676",
+        "menubar_bg": "#ffffff", "menubar_border": "#d4d4d4", "menu_item_hover": "#e5e5e5",
+        "tooltip_bg": "#ffffff", "tooltip_text": "#1e1e1e", "tooltip_border": "#0a66b0",
+        "groupbox_bg": "#ffffff", "groupbox_border": "#d9d9d9", "groupbox_title": "#0a66b0",
+        "input_bg": "#ffffff", "input_border": "#c9c9c9", "input_text": "#1e1e1e", "input_focus_border": "#0a66b0",
+        "spin_btn_bg": "#e8e8e8", "spin_btn_hover": "#d8d8d8",
+        "checkbox_bg": "#ffffff", "checkbox_border": "#b0b0b0", "checkbox_disabled_bg": "#eeeeee", "checkbox_disabled_border": "#d5d5d5",
+        "button_bg": "#e8e8e8", "button_border": "#c9c9c9", "button_text": "#1e1e1e",
+        "button_hover": "#dcdcdc", "button_hover_border": "#b5b5b5", "button_pressed": "#cfcfcf",
+        "button_disabled_bg": "#f0f0f0", "button_disabled_text": "#a0a0a0", "button_disabled_border": "#dddddd",
+        "accent": "#007acc", "accent_hover": "#1f8ad2", "accent_pressed": "#006bb3",
+        "danger": "#c42b1c", "danger_hover": "#d73a2d", "danger_pressed": "#a92418",
+        "list_bg": "#ffffff", "list_border": "#c9c9c9", "list_text": "#1e1e1e", "list_item_hover": "#f0f0f0",
+        "log_bg": "#ffffff", "log_border": "#c9c9c9", "log_text": "#1e1e1e",
+        "progress_bg": "#eaeaea",
+        "status_label": "#0a66b0",
+        "scrollbar_track": "#f3f3f3", "scrollbar_handle": "#c1c1c1", "scrollbar_handle_hover": "#a6a6a6",
+        "icon_default": "#3c3c3c",
+    },
+}
+
+# Log-Textfarben je Theme (siehe MainWindow.append_log).
+LOG_COLORS = {
+    "dark": {
+        "DEFAULT": "#cccccc", "HEADER": "#007acc", "SUCCESS": "#4ec9b0",
+        "WARNING": "#ce9178", "ERROR": "#f44747", "SUMMARY": "#569cd6",
+        "SUMMARY_BOLD": "#ffffff",
+    },
+    "light": {
+        "DEFAULT": "#1e1e1e", "HEADER": "#0a66b0", "SUCCESS": "#0f7a5f",
+        "WARNING": "#8a5a1e", "ERROR": "#c4291c", "SUMMARY": "#0a66b0",
+        "SUMMARY_BOLD": "#000000",
+    },
+}
 
 # Robocopy-Parametersätze je Aktionstyp. Wird sowohl von den Direct-Buttons
 # als auch von der Task-Queue verwendet, damit es nur eine Quelle der
@@ -252,7 +315,8 @@ class AboutDialog(QDialog):
         """Kleines Info-Dialogfenster mit App-Logo und Versionsangabe."""
         self.setWindowTitle("Info")
         self.setFixedWidth(400)
-        self.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4;")
+        p = PALETTES[getattr(parent, "theme", "dark")]
+        self.setStyleSheet(f"background-color: {p['window_bg']}; color: {p['text']};")
         if parent:
             self.setWindowIcon(parent.windowIcon())
         layout = QVBoxLayout()
@@ -262,7 +326,7 @@ class AboutDialog(QDialog):
             lbl_logo.setPixmap(pixmap.scaled(250, 250, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
             lbl_logo.setText(f"<b>{APP_NAME}</b>")
-            lbl_logo.setStyleSheet("font-size: 18pt; color: #007acc;")
+            lbl_logo.setStyleSheet(f"font-size: 18pt; color: {p['accent']};")
         lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(lbl_logo)
 
@@ -273,7 +337,10 @@ class AboutDialog(QDialog):
 
         btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         btn_box.accepted.connect(self.accept)
-        btn_box.setStyleSheet("QPushButton { background-color: #3c3c3c; color: white; border: 1px solid #555; padding: 5px; width: 80px; border-radius: 6px; }")
+        btn_box.setStyleSheet(
+            f"QPushButton {{ background-color: {p['button_bg']}; color: {p['button_text']}; "
+            f"border: 1px solid {p['button_border']}; padding: 5px; width: 80px; border-radius: 6px; }}"
+        )
         layout.addWidget(btn_box, alignment=Qt.AlignmentFlag.AlignCenter)
         self.setLayout(layout)
 
@@ -309,6 +376,17 @@ class MainWindow(QMainWindow):
         self._queue_total = 0
         self._task_dialog = None
 
+        # Task-Gruppen: benannte, geordnete Listen von Task-Namen (siehe
+        # TASK_GROUPS_FILE), damit man nicht bei jedem Warteschlangen-Lauf
+        # erneut alle zugehörigen Tasks einzeln markieren muss.
+        self.task_groups = []
+
+        # Theme muss vor apply_styles()/init_menu()/init_ui() feststehen,
+        # da beide direkt davon abhängen (Stylesheet bzw. Icon-Farben).
+        self.theme = "dark"
+        self._themed_icons = []  # (widget, icon_name) - siehe _reg_icon/refresh_theme_icons
+        self.load_settings()
+
         icon_path = resource_path(LOGO_FILENAME)
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
@@ -318,6 +396,53 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.load_config()
         self.check_robocopy_available()
+
+    def load_settings(self):
+        try:
+            if os.path.exists(SETTINGS_FILE):
+                with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if data.get("theme") in PALETTES:
+                        self.theme = data["theme"]
+        except Exception:
+            # Nicht kritisch - Standard-Theme (dunkel) wird verwendet
+            pass
+
+    def save_settings(self):
+        try:
+            os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+            with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+                json.dump({"theme": self.theme}, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def _icon_color(self):
+        return PALETTES[self.theme]["icon_default"]
+
+    def _reg_icon(self, widget, name, color=None):
+        """Setzt ein qtawesome-Icon auf widget (QPushButton oder QAction).
+        Ohne explizite `color` wird die Standardfarbe des aktuellen Themes
+        verwendet UND das Icon für refresh_theme_icons() vorgemerkt, damit es
+        beim Theme-Wechsel automatisch neu eingefärbt wird. Icons auf farbig
+        hinterlegten Buttons (btn_blue/btn_red) übergeben bewusst ein festes
+        `color` (meist 'white') und bleiben davon unberührt."""
+        widget.setIcon(icon(name, color=color or self._icon_color()))
+        if color is None:
+            self._themed_icons.append((widget, name))
+        return widget
+
+    def refresh_theme_icons(self):
+        c = self._icon_color()
+        for widget, name in self._themed_icons:
+            widget.setIcon(icon(name, color=c))
+
+    def toggle_theme(self, light_enabled):
+        self.theme = "light" if light_enabled else "dark"
+        self.apply_styles()
+        self.refresh_theme_icons()
+        if self._task_dialog is not None:
+            self._task_dialog.refresh_theme_icons()
+        self.save_settings()
 
     def check_robocopy_available(self):
         """Prüft einmalig beim Start, ob robocopy.exe im PATH gefunden wird.
@@ -334,89 +459,100 @@ class MainWindow(QMainWindow):
             )
 
     def apply_styles(self):
-        self.setStyleSheet("""
-            QMainWindow, QWidget { background-color: #1e1e1e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; font-size: 10pt; }
-            QMenuBar { background-color: #252526; color: #e0e0e0; border-bottom: 1px solid #3e3e3e; padding: 2px; }
-            QMenuBar::item { padding: 4px 10px; border-radius: 4px; }
-            QMenuBar::item:selected { background-color: #3e3e3e; }
-            QMenu { background-color: #252526; color: #e0e0e0; border: 1px solid #454545; padding: 4px; }
-            QMenu::item { padding: 6px 24px 6px 12px; border-radius: 4px; }
-            QMenu::item:selected { background-color: #007acc; color: white; }
-            QToolTip { background-color: #2d2d2d; color: #f0f0f0; border: 1px solid #007acc; padding: 4px; border-radius: 4px; }
-            QGroupBox { border: 1px solid #3a3a3a; border-radius: 8px; margin-top: 20px; font-weight: 600; background-color: #222222; }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #4fb3e8; }
-            QLabel { background: transparent; }
-            QLineEdit, QComboBox, QDateEdit {
-                background-color: #2b2b2b; border: 1px solid #3e3e3e; padding: 6px 8px;
-                color: #f0f0f0; border-radius: 5px; selection-background-color: #007acc;
-            }
-            QLineEdit:focus, QComboBox:focus, QDateEdit:focus { border: 1px solid #4fb3e8; }
-            QComboBox::drop-down { border: none; width: 22px; }
-            QComboBox QAbstractItemView {
-                background-color: #2b2b2b; color: #f0f0f0; border: 1px solid #454545;
-                selection-background-color: #007acc; outline: 0;
-            }
-            QSpinBox { background-color: #2b2b2b; border: 1px solid #3e3e3e; padding: 4px; color: #f0f0f0; border-radius: 5px; min-height: 20px; }
-            QSpinBox::up-button, QSpinBox::down-button { width: 22px; background-color: #3c3c3c; border: none; }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover { background-color: #4a4a4a; }
-            QCheckBox { spacing: 8px; }
-            QCheckBox::indicator {
+        p = PALETTES[self.theme]
+        self.setStyleSheet(f"""
+            QMainWindow, QWidget {{ background-color: {p['window_bg']}; color: {p['text']}; font-family: 'Segoe UI', sans-serif; font-size: 10pt; }}
+            QMenuBar {{ background-color: {p['menubar_bg']}; color: {p['text']}; border-bottom: 1px solid {p['menubar_border']}; padding: 2px; }}
+            QMenuBar::item {{ padding: 4px 10px; border-radius: 4px; }}
+            QMenuBar::item:selected {{ background-color: {p['menu_item_hover']}; }}
+            QMenu {{ background-color: {p['menubar_bg']}; color: {p['text']}; border: 1px solid {p['groupbox_border']}; padding: 4px; }}
+            QMenu::item {{ padding: 6px 24px 6px 12px; border-radius: 4px; }}
+            QMenu::item:selected {{ background-color: {p['accent']}; color: white; }}
+            QToolTip {{ background-color: {p['tooltip_bg']}; color: {p['tooltip_text']}; border: 1px solid {p['tooltip_border']}; padding: 4px; border-radius: 4px; }}
+            QGroupBox {{ border: 1px solid {p['groupbox_border']}; border-radius: 8px; margin-top: 20px; font-weight: 600; background-color: {p['groupbox_bg']}; }}
+            QGroupBox::title {{ subcontrol-origin: margin; left: 10px; padding: 0 6px; color: {p['groupbox_title']}; }}
+            QLabel {{ background: transparent; }}
+            QLineEdit, QComboBox, QDateEdit {{
+                background-color: {p['input_bg']}; border: 1px solid {p['input_border']}; padding: 6px 8px;
+                color: {p['input_text']}; border-radius: 5px; selection-background-color: {p['accent']};
+            }}
+            QLineEdit:focus, QComboBox:focus, QDateEdit:focus {{ border: 1px solid {p['input_focus_border']}; }}
+            QComboBox::drop-down {{ border: none; width: 22px; }}
+            QComboBox QAbstractItemView {{
+                background-color: {p['input_bg']}; color: {p['input_text']}; border: 1px solid {p['groupbox_border']};
+                selection-background-color: {p['accent']}; outline: 0;
+            }}
+            QSpinBox {{ background-color: {p['input_bg']}; border: 1px solid {p['input_border']}; padding: 4px; color: {p['input_text']}; border-radius: 5px; min-height: 20px; }}
+            QSpinBox::up-button, QSpinBox::down-button {{ width: 22px; background-color: {p['spin_btn_bg']}; border: none; }}
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background-color: {p['spin_btn_hover']}; }}
+            QCheckBox {{ spacing: 8px; }}
+            QCheckBox::indicator {{
                 width: 16px; height: 16px; border-radius: 4px;
-                border: 1px solid #5a5a5a; background-color: #2b2b2b;
-            }
-            QCheckBox::indicator:hover { border: 1px solid #4fb3e8; }
-            QCheckBox::indicator:checked { background-color: #007acc; border: 1px solid #007acc; }
-            QCheckBox::indicator:disabled { background-color: #262626; border: 1px solid #3a3a3a; }
-            QPushButton {
-                background-color: #3c3c3c; border: 1px solid #454545; padding: 8px 16px;
-                border-radius: 6px; color: white; font-weight: 600;
-            }
-            QPushButton:hover { background-color: #4a4a4a; border: 1px solid #5a5a5a; }
-            QPushButton:pressed { background-color: #333333; }
-            QPushButton:disabled { background-color: #2a2a2a; color: #777777; border: 1px solid #333333; }
-            QPushButton#btn_blue { background-color: #007acc; border: 1px solid #007acc; }
-            QPushButton#btn_blue:hover { background-color: #1f8ad2; }
-            QPushButton#btn_blue:pressed { background-color: #006bb3; }
-            QPushButton#btn_red { background-color: #c42b1c; border: 1px solid #c42b1c; }
-            QPushButton#btn_red:hover { background-color: #d73a2d; }
-            QPushButton#btn_red:pressed { background-color: #a92418; }
-            QListWidget {
-                background-color: #191919; border: 1px solid #3e3e3e; border-radius: 5px;
-                color: #d4d4d4; outline: 0; padding: 2px;
-            }
-            QListWidget::item { padding: 4px 6px; border-radius: 4px; }
-            QListWidget::item:selected { background-color: #007acc; color: white; }
-            QListWidget::item:hover:!selected { background-color: #2d2d2d; }
-            QTextEdit { background-color: #101010; color: #cccccc; border: 1px solid #3e3e3e; border-radius: 5px; font-family: 'Consolas', monospace; font-size: 10pt; }
-            QProgressBar { border: 1px solid #3e3e3e; border-radius: 5px; text-align: center; background-color: #252526; }
-            QProgressBar::chunk { background-color: #007acc; border-radius: 4px; }
-            QLabel#status_label { color: #4fb3e8; font-weight: 600; font-size: 11pt; }
-            QScrollBar:vertical { background: #1e1e1e; width: 12px; margin: 0; }
-            QScrollBar::handle:vertical { background: #454545; min-height: 24px; border-radius: 5px; }
-            QScrollBar::handle:vertical:hover { background: #5a5a5a; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-            QScrollBar:horizontal { background: #1e1e1e; height: 12px; margin: 0; }
-            QScrollBar::handle:horizontal { background: #454545; min-width: 24px; border-radius: 5px; }
-            QScrollBar::handle:horizontal:hover { background: #5a5a5a; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+                border: 1px solid {p['checkbox_border']}; background-color: {p['checkbox_bg']};
+            }}
+            QCheckBox::indicator:hover {{ border: 1px solid {p['input_focus_border']}; }}
+            QCheckBox::indicator:checked {{ background-color: {p['accent']}; border: 1px solid {p['accent']}; }}
+            QCheckBox::indicator:disabled {{ background-color: {p['checkbox_disabled_bg']}; border: 1px solid {p['checkbox_disabled_border']}; }}
+            QPushButton {{
+                background-color: {p['button_bg']}; border: 1px solid {p['button_border']}; padding: 8px 16px;
+                border-radius: 6px; color: {p['button_text']}; font-weight: 600;
+            }}
+            QPushButton:hover {{ background-color: {p['button_hover']}; border: 1px solid {p['button_hover_border']}; }}
+            QPushButton:pressed {{ background-color: {p['button_pressed']}; }}
+            QPushButton:disabled {{ background-color: {p['button_disabled_bg']}; color: {p['button_disabled_text']}; border: 1px solid {p['button_disabled_border']}; }}
+            QPushButton#btn_blue {{ background-color: {p['accent']}; border: 1px solid {p['accent']}; color: white; }}
+            QPushButton#btn_blue:hover {{ background-color: {p['accent_hover']}; }}
+            QPushButton#btn_blue:pressed {{ background-color: {p['accent_pressed']}; }}
+            QPushButton#btn_red {{ background-color: {p['danger']}; border: 1px solid {p['danger']}; color: white; }}
+            QPushButton#btn_red:hover {{ background-color: {p['danger_hover']}; }}
+            QPushButton#btn_red:pressed {{ background-color: {p['danger_pressed']}; }}
+            QListWidget {{
+                background-color: {p['list_bg']}; border: 1px solid {p['list_border']}; border-radius: 5px;
+                color: {p['list_text']}; outline: 0; padding: 2px;
+            }}
+            QListWidget::item {{ padding: 4px 6px; border-radius: 4px; }}
+            QListWidget::item:selected {{ background-color: {p['accent']}; color: white; }}
+            QListWidget::item:hover:!selected {{ background-color: {p['list_item_hover']}; }}
+            QTextEdit {{ background-color: {p['log_bg']}; color: {p['log_text']}; border: 1px solid {p['log_border']}; border-radius: 5px; font-family: 'Consolas', monospace; font-size: 10pt; }}
+            QProgressBar {{ border: 1px solid {p['groupbox_border']}; border-radius: 5px; text-align: center; background-color: {p['progress_bg']}; }}
+            QProgressBar::chunk {{ background-color: {p['accent']}; border-radius: 4px; }}
+            QLabel#status_label {{ color: {p['status_label']}; font-weight: 600; font-size: 11pt; }}
+            QScrollBar:vertical {{ background: {p['scrollbar_track']}; width: 12px; margin: 0; }}
+            QScrollBar::handle:vertical {{ background: {p['scrollbar_handle']}; min-height: 24px; border-radius: 5px; }}
+            QScrollBar::handle:vertical:hover {{ background: {p['scrollbar_handle_hover']}; }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+            QScrollBar:horizontal {{ background: {p['scrollbar_track']}; height: 12px; margin: 0; }}
+            QScrollBar::handle:horizontal {{ background: {p['scrollbar_handle']}; min-width: 24px; border-radius: 5px; }}
+            QScrollBar::handle:horizontal:hover {{ background: {p['scrollbar_handle_hover']}; }}
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
         """)
 
-    # apply_styles: definiert das Aussehen der Anwendung via Stylesheet
+    # apply_styles: definiert das Aussehen der Anwendung via Stylesheet, gespeist aus PALETTES[self.theme]
 
     def init_menu(self):
         menubar = self.menuBar()
         file_menu = menubar.addMenu('Datei')
-        exit_action = QAction(icon('fa5s.sign-out-alt'), 'Beenden', self)
+        exit_action = QAction('Beenden', self)
+        self._reg_icon(exit_action, 'fa5s.sign-out-alt')
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
         tasks_menu = menubar.addMenu('Tasks')
-        manage_tasks_action = QAction(icon('fa5s.list'), 'Tasks verwalten...', self)
+        manage_tasks_action = QAction('Tasks verwalten...', self)
+        self._reg_icon(manage_tasks_action, 'fa5s.list')
         manage_tasks_action.triggered.connect(self.open_task_manager)
         tasks_menu.addAction(manage_tasks_action)
 
+        view_menu = menubar.addMenu('Ansicht')
+        self.light_theme_action = QAction('Helles Design', self)
+        self.light_theme_action.setCheckable(True)
+        self.light_theme_action.setChecked(self.theme == "light")
+        self.light_theme_action.toggled.connect(self.toggle_theme)
+        view_menu.addAction(self.light_theme_action)
+
         admin_menu = menubar.addMenu('Admin-Modus')
-        restart_action = QAction(icon('fa5s.user-shield'), 'Als Administrator neu starten', self)
+        restart_action = QAction('Als Administrator neu starten', self)
+        self._reg_icon(restart_action, 'fa5s.user-shield')
         if is_admin():
             restart_action.setEnabled(False)
             restart_action.setText("Läuft bereits als Admin")
@@ -425,7 +561,8 @@ class MainWindow(QMainWindow):
         admin_menu.addAction(restart_action)
 
         help_menu = menubar.addMenu('Hilfe')
-        about_action = QAction(icon('fa5s.info-circle'), 'Über...', self)
+        about_action = QAction('Über...', self)
+        self._reg_icon(about_action, 'fa5s.info-circle')
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
@@ -448,7 +585,7 @@ class MainWindow(QMainWindow):
             combo.setEditable(True)
             combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             btn = QPushButton(" Durchsuchen... ")
-            btn.setIcon(icon('fa5s.folder-open'))
+            self._reg_icon(btn, 'fa5s.folder-open')
             btn.clicked.connect(lambda: self.browse_folder(combo))
             row.addWidget(lbl)
             row.addWidget(combo)
@@ -503,7 +640,7 @@ class MainWindow(QMainWindow):
             # Checkbox-Text bei schmalem Fenster nicht mit dem Button kollidiert.
             h_acl = QHBoxLayout()
             btn_enable_acl = QPushButton(" Als Admin aktivieren")
-            btn_enable_acl.setIcon(icon('fa5s.user-shield'))
+            self._reg_icon(btn_enable_acl, 'fa5s.user-shield')
             btn_enable_acl.setToolTip("Neustart als Administrator, um ACL-Kopie zu erlauben")
             btn_enable_acl.setFixedWidth(190)
             btn_enable_acl.setStyleSheet("QPushButton { padding: 6px 10px; }")
@@ -535,7 +672,7 @@ class MainWindow(QMainWindow):
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setToolTip("Wählen Sie ein Datum, um Dateien im Zielordner zu löschen, die an diesem Datum geändert wurden.")
         btn_del_date = QPushButton(" Löschen nach Datum")
-        btn_del_date.setIcon(icon('fa5s.calendar-times'))
+        self._reg_icon(btn_del_date, 'fa5s.calendar-times')
         btn_del_date.clicked.connect(self.delete_by_date)
         btn_del_date.setToolTip("Verschiebt Dateien im Zielordner, die am ausgewählten Datum geändert wurden, in den Papierkorb.")
         layout_del.addWidget(QLabel("Datum:"), 0, 0)
@@ -546,7 +683,7 @@ class MainWindow(QMainWindow):
         self.txt_pattern.setPlaceholderText("z.B. *temp*")
         self.txt_pattern.setToolTip("Geben Sie ein Muster ein (z.B. *temp*), um Dateien im Zielordner zu löschen, die diesem Muster entsprechen.")
         btn_del_name = QPushButton(" Löschen nach Name")
-        btn_del_name.setIcon(icon('fa5s.eraser'))
+        self._reg_icon(btn_del_name, 'fa5s.eraser')
         btn_del_name.clicked.connect(self.delete_by_name)
         btn_del_name.setToolTip("Verschiebt Dateien im Zielordner, deren Namen dem eingegebenen Muster entsprechen, in den Papierkorb.")
         layout_del.addWidget(QLabel("Muster:"), 1, 0)
@@ -588,12 +725,12 @@ class MainWindow(QMainWindow):
         btn_purge.clicked.connect(self.action_purge)
 
         btn_comp = QPushButton(" Vergleich")
-        btn_comp.setIcon(icon('fa5s.balance-scale'))
+        self._reg_icon(btn_comp, 'fa5s.balance-scale')
         btn_comp.setToolTip("Führt einen Vergleich der Quell- und Zielordner durch und zeigt die Unterschiede an, ohne Änderungen vorzunehmen.")
         btn_comp.clicked.connect(lambda: self.run_robo("Vergleich", list(ACTION_PARAMS["Vergleich"])))
 
         self.btn_cancel = QPushButton(" Abbrechen")
-        self.btn_cancel.setIcon(icon('fa5s.times-circle'))
+        self._reg_icon(self.btn_cancel, 'fa5s.times-circle')
         self.btn_cancel.clicked.connect(self.cancel_robo)
         self.btn_cancel.setEnabled(False)
 
@@ -640,11 +777,11 @@ class MainWindow(QMainWindow):
         # Log buttons (placed side-by-side to save vertical space)
         h_log_buttons = QHBoxLayout()
         self.btn_log_dir = QPushButton(" Log-Ordner ändern")
-        self.btn_log_dir.setIcon(icon('fa5s.folder'))
+        self._reg_icon(self.btn_log_dir, 'fa5s.folder')
         self.btn_log_dir.clicked.connect(self.choose_log_dir)
         self.btn_log_dir.setFixedWidth(180)
         btn_clear_log = QPushButton(" Log leeren")
-        btn_clear_log.setIcon(icon('fa5s.eraser'))
+        self._reg_icon(btn_clear_log, 'fa5s.eraser')
         btn_clear_log.clicked.connect(self.clear_log)
         btn_clear_log.setFixedWidth(140)
         h_log_buttons.addWidget(self.btn_log_dir)
@@ -691,12 +828,8 @@ class MainWindow(QMainWindow):
         return os.path.join(self.log_dir, f"robocopy_{timestamp}.log")
 
     def append_log(self, text, color_type="DEFAULT"):
-        colors = {
-            "DEFAULT": "#cccccc", "HEADER": "#007acc", "SUCCESS": "#4ec9b0",
-            "WARNING": "#ce9178", "ERROR": "#f44747", "SUMMARY": "#569cd6",
-            "SUMMARY_BOLD": "#ffffff"
-        }
-        color = colors.get(color_type, "#cccccc")
+        colors = LOG_COLORS[self.theme]
+        color = colors.get(color_type, colors["DEFAULT"])
         weight = "bold" if color_type == "SUMMARY_BOLD" else "normal"
         safe_text = text.replace(" ", "&nbsp;")
         self.txt_log.append(f'<span style="color:{color}; font-weight:{weight};">{safe_text}</span>')
@@ -919,6 +1052,14 @@ class MainWindow(QMainWindow):
             # Nicht kritisch – Tasks werden dann leer gestartet
             pass
 
+        # Lade gespeicherte Task-Gruppen (falls vorhanden)
+        try:
+            if os.path.exists(TASK_GROUPS_FILE):
+                with open(TASK_GROUPS_FILE, 'r', encoding='utf-8') as gf:
+                    self.task_groups = json.load(gf)
+        except Exception:
+            pass
+
         self._migrate_legacy_presets()
 
     def _migrate_legacy_presets(self):
@@ -1007,6 +1148,7 @@ class MainWindow(QMainWindow):
         if getattr(self, '_task_dialog', None) is None:
             self._task_dialog = TaskManagerDialog(self)
         self._task_dialog.refresh_list()
+        self._task_dialog.refresh_groups()
         self._task_dialog.show()
         self._task_dialog.raise_()
         self._task_dialog.activateWindow()
@@ -1018,6 +1160,14 @@ class MainWindow(QMainWindow):
                 json.dump(self.queue_tasks, tf, ensure_ascii=False, indent=2)
         except Exception as e:
             self.append_log(f"WARNUNG: Konnte Tasks nicht speichern: {e}", "WARNING")
+
+    def save_task_groups(self):
+        try:
+            os.makedirs(os.path.dirname(TASK_GROUPS_FILE), exist_ok=True)
+            with open(TASK_GROUPS_FILE, 'w', encoding='utf-8') as gf:
+                json.dump(self.task_groups, gf, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.append_log(f"WARNUNG: Konnte Task-Gruppen nicht speichern: {e}", "WARNING")
 
     def start_queue(self, tasks):
         """Führt die übergebenen Tasks (Liste von Task-Dicts, in Ausführungs-
@@ -1143,8 +1293,11 @@ class TaskManagerDialog(QDialog):
         self.setWindowTitle("Tasks verwalten")
         if not main_window.windowIcon().isNull():
             self.setWindowIcon(main_window.windowIcon())
-        self.resize(820, 480)
-        self.setMinimumSize(700, 420)
+        self.resize(820, 520)
+        # Keine feste setMinimumSize: analog zu MainWindow soll Qt die
+        # inhaltlich korrekte Mindestgröße aus dem Layout selbst berechnen,
+        # statt mit einer geratenen Zahl Inhalte abzuschneiden.
+        self._themed_icons = []  # (widget, icon_name) - siehe _reg_icon/refresh_theme_icons
 
         outer = QVBoxLayout(self)
 
@@ -1170,16 +1323,50 @@ class TaskManagerDialog(QDialog):
 
         row_left_buttons = QHBoxLayout()
         btn_new = QPushButton(" Neu")
-        btn_new.setIcon(icon('fa5s.plus-circle'))
+        self._reg_icon(btn_new, 'fa5s.plus-circle')
         btn_new.setToolTip("Leert das Formular rechts für eine neue Task.")
         btn_new.clicked.connect(self.new_task)
         btn_delete = QPushButton(" Löschen")
-        btn_delete.setIcon(icon('fa5s.trash'))
+        self._reg_icon(btn_delete, 'fa5s.trash')
         btn_delete.setToolTip("Löscht die markierte(n) Task(s).")
         btn_delete.clicked.connect(self.delete_selected)
         row_left_buttons.addWidget(btn_new)
         row_left_buttons.addWidget(btn_delete)
         left.addLayout(row_left_buttons)
+
+        # Gruppen: benannte, gespeicherte Auswahl mehrerer Tasks (per Name
+        # referenziert, keine Kopie) - "Gruppe anwenden" markiert nur die
+        # zugehörigen Tasks in der Liste oben, gestartet wird weiterhin
+        # bewusst über den separaten "Warteschlange starten"-Klick.
+        grp_groups = QGroupBox("Gruppen")
+        layout_groups = QVBoxLayout()
+        layout_groups.setSpacing(6)
+
+        self.cmb_group = QComboBox()
+        self.cmb_group.setEditable(True)
+        self.cmb_group.setToolTip("Namen einer bestehenden Gruppe wählen oder neuen Namen eingeben.")
+        layout_groups.addWidget(self.cmb_group)
+
+        row_group_buttons = QHBoxLayout()
+        btn_group_save = QPushButton(" Speichern")
+        self._reg_icon(btn_group_save, 'fa5s.layer-group')
+        btn_group_save.setToolTip("Speichert die aktuell markierten Tasks (in Listreihenfolge) unter diesem Namen als Gruppe.")
+        btn_group_save.clicked.connect(self.save_group)
+        btn_group_apply = QPushButton(" Anwenden")
+        self._reg_icon(btn_group_apply, 'fa5s.check-square')
+        btn_group_apply.setToolTip("Markiert die zu dieser Gruppe gehörenden Tasks in der Liste oben.")
+        btn_group_apply.clicked.connect(self.apply_group)
+        btn_group_delete = QPushButton(" Löschen")
+        self._reg_icon(btn_group_delete, 'fa5s.trash')
+        btn_group_delete.setToolTip("Löscht diese Gruppe (die referenzierten Tasks bleiben erhalten).")
+        btn_group_delete.clicked.connect(self.delete_group)
+        row_group_buttons.addWidget(btn_group_save)
+        row_group_buttons.addWidget(btn_group_apply)
+        row_group_buttons.addWidget(btn_group_delete)
+        layout_groups.addLayout(row_group_buttons)
+
+        grp_groups.setLayout(layout_groups)
+        left.addWidget(grp_groups)
 
         content.addLayout(left, 1)
 
@@ -1207,7 +1394,7 @@ class TaskManagerDialog(QDialog):
         row_src.addWidget(QLabel("Quelle:"))
         self.txt_source = QLineEdit()
         btn_src = QPushButton()
-        btn_src.setIcon(icon('fa5s.folder-open'))
+        self._reg_icon(btn_src, 'fa5s.folder-open')
         btn_src.setToolTip("Durchsuchen...")
         btn_src.clicked.connect(lambda: self._browse(self.txt_source))
         row_src.addWidget(self.txt_source)
@@ -1218,7 +1405,7 @@ class TaskManagerDialog(QDialog):
         row_dst.addWidget(QLabel("Ziel:"))
         self.txt_target = QLineEdit()
         btn_dst = QPushButton()
-        btn_dst.setIcon(icon('fa5s.folder-open'))
+        self._reg_icon(btn_dst, 'fa5s.folder-open')
         btn_dst.setToolTip("Durchsuchen...")
         btn_dst.clicked.connect(lambda: self._browse(self.txt_target))
         row_dst.addWidget(self.txt_target)
@@ -1246,7 +1433,7 @@ class TaskManagerDialog(QDialog):
         right.addWidget(grp_form, 1)
 
         btn_save = QPushButton(" Speichern")
-        btn_save.setIcon(icon('fa5s.save'))
+        self._reg_icon(btn_save, 'fa5s.save')
         btn_save.setObjectName("btn_blue")
         btn_save.setToolTip("Speichert diese Task (überschreibt bei gleichem Namen).")
         btn_save.clicked.connect(self.save_current)
@@ -1262,7 +1449,7 @@ class TaskManagerDialog(QDialog):
         self.btn_start_queue.setToolTip("Führt alle markierten Tasks in Listreihenfolge nacheinander aus.")
         self.btn_start_queue.clicked.connect(self.start_selected_queue)
         btn_close = QPushButton(" Schließen")
-        btn_close.setIcon(icon('fa5s.times-circle'))
+        self._reg_icon(btn_close, 'fa5s.times-circle')
         btn_close.clicked.connect(self.close)
         footer.addWidget(self.btn_start_queue)
         footer.addStretch()
@@ -1271,6 +1458,21 @@ class TaskManagerDialog(QDialog):
 
         self.new_task()
         self.refresh_list()
+        self.refresh_groups()
+
+    def _reg_icon(self, widget, name, color=None):
+        """Wie MainWindow._reg_icon: setzt ein themenabhängiges qtawesome-
+        Icon und merkt es für refresh_theme_icons() vor (Farbquelle ist die
+        aktuelle Theme-Standardfarbe von main_window)."""
+        widget.setIcon(icon(name, color=color or self.main_window._icon_color()))
+        if color is None:
+            self._themed_icons.append((widget, name))
+        return widget
+
+    def refresh_theme_icons(self):
+        c = self.main_window._icon_color()
+        for widget, name in self._themed_icons:
+            widget.setIcon(icon(name, color=c))
 
     def _browse(self, line_edit):
         folder = QFileDialog.getExistingDirectory(self, "Ordner auswählen", line_edit.text())
@@ -1348,6 +1550,73 @@ class TaskManagerDialog(QDialog):
             self.main_window.save_tasks()
             self.new_task()
             self.refresh_list()
+
+    # --- Gruppen: benannte, geordnete Task-Auswahl (per Name referenziert) ---
+
+    def save_group(self):
+        name = self.cmb_group.currentText().strip()
+        if not name:
+            QMessageBox.warning(self, "Fehler", "Bitte einen Namen für die Gruppe angeben.")
+            return
+        items = sorted(self.list_tasks.selectedItems(), key=lambda it: self.list_tasks.row(it))
+        if not items:
+            QMessageBox.warning(self, "Fehler", "Bitte mindestens eine Task markieren, die zur Gruppe gehören soll.")
+            return
+        task_names = [it.data(Qt.ItemDataRole.UserRole)['name'] for it in items]
+        groups = self.main_window.task_groups
+        existing_index = next((i for i, g in enumerate(groups) if g['name'] == name), None)
+        group = {"name": name, "tasks": task_names}
+        if existing_index is not None:
+            groups[existing_index] = group
+        else:
+            groups.append(group)
+        self.main_window.save_task_groups()
+        self.refresh_groups(select_name=name)
+
+    def apply_group(self):
+        name = self.cmb_group.currentText().strip()
+        group = next((g for g in self.main_window.task_groups if g['name'] == name), None)
+        if group is None:
+            QMessageBox.warning(self, "Fehler", "Bitte eine gültige Gruppe wählen.")
+            return
+        wanted = set(group['tasks'])
+        available_names = {t['name'] for t in self.main_window.queue_tasks}
+        missing = [n for n in group['tasks'] if n not in available_names]
+        self.list_tasks.clearSelection()
+        for i in range(self.list_tasks.count()):
+            item = self.list_tasks.item(i)
+            if item.data(Qt.ItemDataRole.UserRole)['name'] in wanted:
+                item.setSelected(True)
+        self._update_queue_button_label()
+        if missing:
+            self.main_window.append_log(
+                f"WARNUNG: Gruppe '{name}' referenziert nicht mehr vorhandene Task(s), übersprungen: "
+                + ", ".join(missing),
+                "WARNING"
+            )
+
+    def delete_group(self):
+        name = self.cmb_group.currentText().strip()
+        groups = self.main_window.task_groups
+        if not name or not any(g['name'] == name for g in groups):
+            QMessageBox.warning(self, "Fehler", "Bitte eine gültige Gruppe zum Löschen wählen.")
+            return
+        reply = QMessageBox.question(
+            self, "Gruppe löschen",
+            f"Gruppe '{name}' wirklich löschen? (Die enthaltenen Tasks selbst bleiben erhalten.)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.main_window.task_groups = [g for g in groups if g['name'] != name]
+            self.main_window.save_task_groups()
+            self.refresh_groups()
+
+    def refresh_groups(self, select_name=None):
+        self.cmb_group.clear()
+        self.cmb_group.addItems([g['name'] for g in self.main_window.task_groups])
+        if select_name is not None:
+            self.cmb_group.setCurrentText(select_name)
 
     def refresh_list(self, select_name=None):
         selected_names = (

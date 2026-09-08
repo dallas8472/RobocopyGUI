@@ -10,9 +10,11 @@ Eine schlanke grafische Oberfläche für das Windows-Tool `robocopy`, implementi
 - **Optionen:** Dateialter-Filter, ACL-/Berechtigungs-Kopie (`/COPYALL`, erfordert Administratorrechte), Verbose-Log, optionale Logdatei
 - **Spezial-Löschen:** Dateien im Zielordner nach Änderungsdatum oder Namensmuster entfernen – landen im **Windows-Papierkorb** (`send2trash`), nicht permanent gelöscht
 - **Tasks verwalten** (Menü *Tasks → Tasks verwalten...*): eigenes Fenster zum Anlegen, Bearbeiten und Sortieren (Drag & Drop) gespeicherter Jobs; mehrere Tasks markieren und als **Warteschlange** nacheinander automatisch abarbeiten lassen (Fehler in einer Task stoppen die Warteschlange nicht, am Ende gibt es eine Erfolg/Fehler-Zusammenfassung)
+- **Gruppen:** mehrfach benötigte Kombinationen von Tasks unter einem Namen speichern – ein Klick markiert alle zugehörigen Tasks wieder, ohne sie einzeln auswählen zu müssen
+- **Helles/Dunkles Design** (Menü *Ansicht*), Wahl wird gespeichert und beim nächsten Start wiederhergestellt
 - **Admin-Modus:** Neustart mit Administratorrechten direkt aus der App, nötig für ACL-Kopie
 - Prüft beim Start, ob `robocopy.exe` im PATH gefunden wird
-- Frei skalierbares Fenster mit sinnvoller Mindestgröße
+- Frei skalierbares Fenster mit sinnvoller Mindestgröße; ein laufender Job lässt sich jederzeit über "Abbrechen" stoppen
 
 **Dateien im Repo:**
 - `RobocopyGUI.py` – Hauptanwendung (Quellcode)
@@ -58,6 +60,8 @@ Ergebnis liegt danach in `dist/RobocopyGUI.exe`.
 3. Für wiederkehrende Jobs: über *Tasks → Tasks verwalten...* eine Task mit
    Name, Aktion, Quelle/Ziel und Optionen anlegen. Mehrere Tasks markieren
    (Strg/Umschalt-Klick) und "Warteschlange starten" führt sie der Reihe nach aus.
+4. Häufig gemeinsam ausgeführte Tasks markieren und unter "Gruppen" mit einem
+   Namen speichern – "Anwenden" markiert sie danach mit einem Klick wieder.
 
 Sicherheit / Hinweise:
 - Speichere keine privaten Schlüssel oder PFX-Dateien im Repo. Falls Zertifikate zum Signieren verwendet werden, lege diese außerhalb des Repos ab und füge sie zu `.gitignore` hinzu.
