@@ -539,8 +539,11 @@ class MainWindow(QMainWindow):
 
         # Direkt anklickbare Aktion statt Dropdown-Menü, damit "Tasks" mit
         # einem Klick unmittelbar die Verwaltung öffnet.
+        # Kein Icon hier: auf einer direkten Menüleisten-Aktion (kein
+        # Dropdown) rendert Qt das Icon statt des Texts - passend zu den
+        # anderen Menüleisten-Einträgen (Datei/Ansicht/...), die ebenfalls
+        # textbasiert ohne Icon sind.
         manage_tasks_action = QAction('Tasks', self)
-        self._reg_icon(manage_tasks_action, 'fa5s.list')
         manage_tasks_action.triggered.connect(self.open_task_manager)
         menubar.addAction(manage_tasks_action)
 
