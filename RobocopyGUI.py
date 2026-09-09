@@ -61,7 +61,7 @@ def icon(name, color="#e0e0e0"):
 
 # Configuration
 APP_NAME = "Robocopy GUI"
-VERSION = "2.1"
+VERSION = "2.2"
 CONFIG_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'py_config.json')
 LOGO_FILENAME = "logo.png"
 TASKS_FILE = os.path.join(os.getenv('APPDATA'), 'RobocopyGUI', 'tasks.json')
@@ -477,7 +477,17 @@ class MainWindow(QMainWindow):
                 color: {p['input_text']}; border-radius: 5px; selection-background-color: {p['accent']};
             }}
             QLineEdit:focus, QComboBox:focus, QDateEdit:focus {{ border: 1px solid {p['input_focus_border']}; }}
-            QComboBox::drop-down {{ border: none; width: 22px; }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding; subcontrol-position: top right; width: 24px;
+                border-left: 1px solid {p['input_border']}; background-color: {p['spin_btn_bg']};
+                border-top-right-radius: 5px; border-bottom-right-radius: 5px;
+            }}
+            QComboBox::drop-down:hover {{ background-color: {p['spin_btn_hover']}; }}
+            QComboBox::down-arrow {{
+                image: none; width: 0; height: 0; margin-right: 8px;
+                border-left: 4px solid transparent; border-right: 4px solid transparent;
+                border-top: 5px solid {p['input_text']};
+            }}
             QComboBox QAbstractItemView {{
                 background-color: {p['input_bg']}; color: {p['input_text']}; border: 1px solid {p['groupbox_border']};
                 selection-background-color: {p['accent']}; outline: 0;
@@ -1346,14 +1356,14 @@ class TaskManagerDialog(QDialog):
         layout_groups = QVBoxLayout()
         layout_groups.setSpacing(6)
 
-        self.txt_group_name = QLineEdit()
-        self.txt_group_name.setPlaceholderText("Name der Gruppe...")
-        self.txt_group_name.setToolTip("Name, unter dem die aktuell markierten Tasks als Gruppe gespeichert werden.")
-        layout_groups.addWidget(self.txt_group_name)
-
         self.cmb_group = QComboBox()
-        self.cmb_group.setToolTip("Bestehende Gruppe zum Anwenden oder Löschen auswählen.")
-        self.cmb_group.currentTextChanged.connect(self.txt_group_name.setText)
+        self.cmb_group.setEditable(True)
+        self.cmb_group.setToolTip("Bestehende Gruppe wählen (Dropdown-Pfeil rechts) oder neuen Namen eingeben.")
+        # activated (nicht currentTextChanged) feuert nur bei echter Auswahl
+        # aus dem Dropdown, nicht bei jedem Tastendruck beim Eintippen eines
+        # neuen Namens - markiert die zugehörigen Tasks sofort, ohne dass
+        # zusätzlich auf "Anwenden" geklickt werden muss.
+        self.cmb_group.activated.connect(self.apply_group)
         layout_groups.addWidget(self.cmb_group)
 
         row_group_buttons = QHBoxLayout()
@@ -1563,7 +1573,7 @@ class TaskManagerDialog(QDialog):
     # --- Gruppen: benannte, geordnete Task-Auswahl (per Name referenziert) ---
 
     def save_group(self):
-        name = self.txt_group_name.text().strip()
+        name = self.cmb_group.currentText().strip()
         if not name:
             QMessageBox.warning(self, "Fehler", "Bitte einen Namen für die Gruppe angeben.")
             return
