@@ -1,71 +1,73 @@
 # Robocopy GUI
 
-Eine schlanke grafische Oberfläche für das Windows-Tool `robocopy`, implementiert in Python mit PyQt6.
+A lightweight graphical interface for the Windows tool `robocopy`, implemented in Python with PyQt6.
 
-**Kurz:** Einfache Bedienung für inkrementelle Kopien, Spiegeln, Vergleiche und selektives Löschen – inklusive einer Task-Verwaltung für wiederkehrende Jobs, die sich einzeln oder als Warteschlange nacheinander ausführen lassen.
+**In short:** Simple operation for incremental copies, mirroring, comparisons and selective deletion – including task management for recurring jobs that can be run individually or as a queue, one after another.
 
-## Funktionen
+## Features
 
-- **Kopier-Aktionen:** Struktur (nur Ordner), Daten-Update (inkrementell), Spiegeln (Mirror, inkl. Löschen im Ziel), Bereinigen (Purge) und Vergleich (Dry-Run, `/L`)
-- **Optionen:** Dateialter-Filter, ACL-/Berechtigungs-Kopie (`/COPYALL`, erfordert Administratorrechte), Verbose-Log, optionale Logdatei
-- **Spezial-Löschen:** Dateien im Zielordner nach Änderungsdatum oder Namensmuster entfernen – landen im **Windows-Papierkorb** (`send2trash`), nicht permanent gelöscht
-- **Tasks verwalten** (Menü *Tasks → Tasks verwalten...*): eigenes Fenster zum Anlegen, Bearbeiten und Sortieren (Drag & Drop) gespeicherter Jobs; mehrere Tasks markieren und als **Warteschlange** nacheinander automatisch abarbeiten lassen (Fehler in einer Task stoppen die Warteschlange nicht, am Ende gibt es eine Erfolg/Fehler-Zusammenfassung)
-- **Gruppen:** mehrfach benötigte Kombinationen von Tasks unter einem Namen speichern – ein Klick markiert alle zugehörigen Tasks wieder, ohne sie einzeln auswählen zu müssen
-- **Helles/Dunkles Design** (Menü *Ansicht*), Wahl wird gespeichert und beim nächsten Start wiederhergestellt
-- **Admin-Modus:** Neustart mit Administratorrechten direkt aus der App, nötig für ACL-Kopie
-- Prüft beim Start, ob `robocopy.exe` im PATH gefunden wird
-- Frei skalierbares Fenster mit sinnvoller Mindestgröße; ein laufender Job lässt sich jederzeit über "Abbrechen" stoppen
+- **Copy actions:** Structure (folders only), data update (incremental), mirror (including deleting in the target), purge (delete without copying) and compare (dry run, `/L`)
+- **Options:** file-age filter, ACL/permission copy (`/COPYALL`, requires administrator rights), verbose log, optional log file
+- **Special delete:** remove files in the target folder by modification date or name pattern – they go to the **Windows recycle bin** (`send2trash`), not permanently deleted
+- **Task management** (menu *Tasks → Manage tasks...*): a separate window to create, edit and reorder (drag & drop) saved jobs; select multiple tasks and run them automatically one after another as a **queue** (an error in one task doesn't stop the queue; you get a success/failure summary at the end)
+- **Groups:** save combinations of tasks that are needed together under one name – one click selects all matching tasks again, without picking them individually
+- **Light/dark theme** (menu *View*), the choice is saved and restored on the next start
+- **Language:** UI language is picked automatically from the system locale at startup (German or English); can be overridden via the menu, takes effect after a restart
+- **Admin mode:** restart with administrator rights directly from the app, needed for ACL copying
+- Checks at startup whether `robocopy.exe` can be found
+- Freely resizable window with a sensible minimum size; a running job can be cancelled at any time
 
-**Dateien im Repo:**
-- `RobocopyGUI.py` – Hauptanwendung (Quellcode)
-- `logo.png`, `RobocopyGUI.ico` – App-Logo / Icon
-- `RobocopyGUI.spec` – PyInstaller-Spec (bündelt auch das benötigte Icon-Font-Subset von `qtawesome`)
-- `dist/RobocopyGUI.exe` – gebaute Einzeldatei (falls vorhanden)
-- `_create_ico.py` – erzeugt `RobocopyGUI.ico` aus `logo.png` (benötigt Pillow)
+**Files in the repo:**
+- `RobocopyGUI.py` – main application (source code)
+- `logo.png`, `RobocopyGUI.ico` – app logo / icon
+- `RobocopyGUI.spec` – PyInstaller spec (also bundles the required icon font subset from `qtawesome`)
+- `dist/RobocopyGUI.exe` – built single-file executable (if present)
+- `_create_ico.py` – generates `RobocopyGUI.ico` from `logo.png` (requires Pillow)
 
-**Voraussetzungen (Entwicklung)**
+**Requirements (development)**
 - Windows
-- Python 3.10+ (hier getestet mit 3.14)
+- Python 3.10+ (tested here with 3.14)
 - PyQt6
-- qtawesome (Icons in der Oberfläche)
-- send2trash (Papierkorb statt permanentem Löschen)
-- Pillow (für Icon-Erstellung)
-- PyInstaller (zum Erstellen der EXE)
+- qtawesome (icons in the UI)
+- send2trash (recycle bin instead of permanent deletion)
+- Pillow (for icon generation)
+- PyInstaller (for building the exe)
 
-Installation der Abhängigkeiten (Dev-Umgebung):
+Installing dependencies (dev environment):
 
 ```powershell
 python -m pip install -r requirements.txt
-# oder einzeln
+# or individually
 python -m pip install PyQt6 qtawesome send2trash pillow pyinstaller
 ```
 
 ## Build
 
-Empfohlen: über das mitgelieferte Spec-File bauen, da es gezielt das benötigte
-Icon-Font-Subset von `qtawesome` mit einbettet (ein direkter `pyinstaller`-Aufruf
-ohne Spec-File tut das nicht und die Icons fehlen dann in der EXE):
+Recommended: build via the provided spec file, since it specifically embeds
+the required icon font subset from `qtawesome` (a direct `pyinstaller` call
+without the spec file doesn't do this, and the icons would be missing from
+the exe):
 
 ```powershell
 python -m PyInstaller --clean RobocopyGUI.spec
 ```
 
-Ergebnis liegt danach in `dist/RobocopyGUI.exe`.
+The result is written to `dist/RobocopyGUI.exe`.
 
-## Nutzung
+## Usage
 
-1. Quell- und Zielordner wählen (oder per Drag & Drop auf die Felder ziehen).
-2. Optionen einstellen (Dateialter, ACLs, Verbose, Logdatei) und eine Aktion in
-   "Ausführung" anklicken.
-3. Für wiederkehrende Jobs: über *Tasks → Tasks verwalten...* eine Task mit
-   Name, Aktion, Quelle/Ziel und Optionen anlegen. Mehrere Tasks markieren
-   (Strg/Umschalt-Klick) und "Warteschlange starten" führt sie der Reihe nach aus.
-4. Häufig gemeinsam ausgeführte Tasks markieren und unter "Gruppen" mit einem
-   Namen speichern – "Anwenden" markiert sie danach mit einem Klick wieder.
+1. Select the source and target folders (or drag & drop them onto the fields).
+2. Set options (file age, ACLs, verbose, log file) and click an action under
+   "Execution".
+3. For recurring jobs: use *Tasks → Manage tasks...* to create a task with a
+   name, action, source/target and options. Select multiple tasks
+   (Ctrl/Shift-click) and "Start queue" runs them one after another.
+4. Select tasks that are frequently run together and save them under
+   "Groups" with a name – "Apply" selects them again with one click.
 
-Sicherheit / Hinweise:
-- Speichere keine privaten Schlüssel oder PFX-Dateien im Repo. Falls Zertifikate zum Signieren verwendet werden, lege diese außerhalb des Repos ab und füge sie zu `.gitignore` hinzu.
-- `robocopy` kann Dateien löschen (z. B. bei Mirror/Purge) – diese Löschungen laufen direkt über robocopy und landen **nicht** im Papierkorb. Prüfe Pfade sorgsam, insbesondere bei Mirror.
-- Konfiguration (zuletzt verwendete Pfade, gespeicherte Tasks) liegt unter `%APPDATA%\RobocopyGUI\`.
+Security / notes:
+- Don't store private keys or PFX files in the repo. If certificates are used for signing, keep them outside the repo and add them to `.gitignore`.
+- `robocopy` can delete files (e.g. with Mirror/Purge) – these deletions go through robocopy directly and do **not** end up in the recycle bin. Check paths carefully, especially with Mirror.
+- Configuration (recently used paths, saved tasks) is stored under `%APPDATA%\RobocopyGUI\`.
 
-Lizenz: [MIT](LICENSE) – freie Nutzung, Veränderung und Weitergabe, auch kommerziell, ohne Gewährleistung.
+License: [MIT](LICENSE) – free to use, modify and redistribute, including commercially, without warranty.
