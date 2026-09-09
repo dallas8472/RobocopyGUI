@@ -1346,9 +1346,14 @@ class TaskManagerDialog(QDialog):
         layout_groups = QVBoxLayout()
         layout_groups.setSpacing(6)
 
+        self.txt_group_name = QLineEdit()
+        self.txt_group_name.setPlaceholderText("Name der Gruppe...")
+        self.txt_group_name.setToolTip("Name, unter dem die aktuell markierten Tasks als Gruppe gespeichert werden.")
+        layout_groups.addWidget(self.txt_group_name)
+
         self.cmb_group = QComboBox()
-        self.cmb_group.setEditable(True)
-        self.cmb_group.setToolTip("Namen einer bestehenden Gruppe wählen oder neuen Namen eingeben.")
+        self.cmb_group.setToolTip("Bestehende Gruppe zum Anwenden oder Löschen auswählen.")
+        self.cmb_group.currentTextChanged.connect(self.txt_group_name.setText)
         layout_groups.addWidget(self.cmb_group)
 
         row_group_buttons = QHBoxLayout()
@@ -1558,7 +1563,7 @@ class TaskManagerDialog(QDialog):
     # --- Gruppen: benannte, geordnete Task-Auswahl (per Name referenziert) ---
 
     def save_group(self):
-        name = self.cmb_group.currentText().strip()
+        name = self.txt_group_name.text().strip()
         if not name:
             QMessageBox.warning(self, "Fehler", "Bitte einen Namen für die Gruppe angeben.")
             return
